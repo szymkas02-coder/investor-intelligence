@@ -68,4 +68,5 @@ images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:latest
 
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
