@@ -44,7 +44,7 @@ app = FastAPI(
 )
 
 # CORS — dev origins + any Cloud Run origin set via env var
-_extra_origin = os.getenv("ALLOWED_ORIGIN", "")
+_extra_origin = os.getenv("ALLOWED_ORIGIN", "https://investor-intelligence-1062085617181.europe-central2.run.app")
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = [
