@@ -50,8 +50,19 @@ if DB_URL:
 
     IS_POSTGRES = True
 
-    # Pool: min=1 always-open, max=20 under peak load (9 history + other requests)
-    _pool = psycopg2.pool.ThreadedConnectionPool(1, 20, DB_URL)
+    # Pool is created lazily on first request so startup never blocks on DB.
+    # This prevents Cloud Run container crash-before-listen if Cloud SQL socket
+    # isn't ready at import time.
+    _pool = None
+    _pool_lock = threading.Lock()
+
+    def _get_pool():
+        global _pool
+        if _pool is None:
+            with _pool_lock:
+                if _pool is None:
+                    _pool = psycopg2.pool.ThreadedConnectionPool(1, 20, DB_URL)
+        return _pool
 
     class _PgAdapter:
         """
@@ -105,11 +116,11 @@ if DB_URL:
                     self._last_cur.close()
                 except Exception:
                     pass
-            _pool.putconn(self._conn)
+            _get_pool().putconn(self._conn)
 
     def get_db() -> Generator[_PgAdapter, None, None]:
         """FastAPI dependency — yields a PostgreSQL connection from the pool."""
-        raw = _pool.getconn()
+        raw = _get_pool().getconn()
         conn = _PgAdapter(raw)
         try:
             yield conn
@@ -121,7 +132,7 @@ if DB_URL:
 
     def get_db_write() -> Generator[_PgAdapter, None, None]:
         """Write connection — commits on success, rolls back on exception."""
-        raw = _pool.getconn()
+        raw = _get_pool().getconn()
         conn = _PgAdapter(raw)
         try:
             yield conn
