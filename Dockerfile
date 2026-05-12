@@ -26,10 +26,14 @@ RUN pip install --no-cache-dir -r requirements-backend.txt
 COPY backend/   ./backend/
 COPY db/        ./db/
 COPY ml/        ./ml/
-COPY models/    ./models/
 COPY ingestion/ ./ingestion/
 COPY processing/ ./processing/
 COPY utils/     ./utils/
+COPY shiller.csv ./shiller.csv
+
+# models/ dir holds .pkl artifacts — not in git, created empty here.
+# Populate via pipeline run or mount externally.
+RUN mkdir -p ./models
 
 # Copy built React app into a location FastAPI will serve as static files
 COPY --from=frontend-build /frontend/dist ./frontend/dist

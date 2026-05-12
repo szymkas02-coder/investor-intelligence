@@ -15,7 +15,6 @@ frontend/dist/
 
 # Notebooks and analysis
 notebooks/
-shiller.csv
 
 # Docs and config
 *.md
