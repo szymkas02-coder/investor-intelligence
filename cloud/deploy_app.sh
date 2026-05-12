@@ -26,8 +26,8 @@
 set -euo pipefail
 
 PROJECT_ID=${1:?Usage: deploy_app.sh PROJECT_ID [REGION] [SQL_INSTANCE_NAME]}
-REGION=${2:-europe-west1}
-SQL_INSTANCE=${3:-investor-pg}
+REGION=${2:-europe-central2}
+SQL_INSTANCE=${3:-free-trial-first-project}
 SERVICE_NAME="investor-intelligence"
 IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/investor/${SERVICE_NAME}"
 SA_EMAIL="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"

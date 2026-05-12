@@ -19,9 +19,9 @@
 #       --role="roles/iam.serviceAccountUser"
 
 substitutions:
-  _REGION: europe-west1
+  _REGION: europe-central2
   _SERVICE: investor-intelligence
-  _SQL_INSTANCE: investor-pg
+  _SQL_INSTANCE: free-trial-first-project
 
 steps:
   # Build the Docker image
