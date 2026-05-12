@@ -9,8 +9,9 @@ __pycache__/
 .pytest_cache/
 *.ipynb_checkpoints/
 
-# Frontend (served separately)
-frontend/
+# Frontend — include source but not node_modules (built inside Docker)
+frontend/node_modules/
+frontend/dist/
 
 # Notebooks and analysis
 notebooks/
