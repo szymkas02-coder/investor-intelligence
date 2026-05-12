@@ -1,0 +1,83 @@
+# Cloud Scheduler job definitions for the Investor Intelligence pipeline
+#
+# Deploy with:
+#   gcloud scheduler jobs create http <name> \
+#     --schedule="<cron>" \
+#     --uri="https://<region>-<project>.cloudfunctions.net/<function>" \
+#     --time-zone="Europe/Warsaw" \
+#     --attempt-deadline=540s \
+#     --oidc-service-account-email=<sa>@<project>.iam.gserviceaccount.com
+#
+# WHY these specific times (Europe/Warsaw timezone):
+#
+#   daily-macro @ 08:00
+#     FRED publishes overnight (US time). By 08:00 Warsaw, previous day's
+#     yield curve data is available. Running macro first means the ML pipeline
+#     at 23:00 has a full day's worth of fresh macro data.
+#
+#   daily-sentiment @ 20:00 (weekdays only)
+#     Captures the full trading day's news cycle before US market close (21:30
+#     Warsaw). Economic calendar actuals are updated throughout the day —
+#     20:00 captures most updates without waiting for US close.
+#
+#   daily-prices @ 22:00 (weekdays only)
+#     US market closes at 22:00 Warsaw (16:00 EST). Running immediately after
+#     close gets same-day closing prices. Running before 23:00 ML pipeline.
+#
+#   daily-ml @ 23:00 (weekdays only)
+#     Runs after all ingestion functions. One hour buffer after prices ensures
+#     yfinance data propagation. Rebuilds daily_features, runs regime classifier,
+#     exports Parquet for FastAPI.
+#
+#   weekly-fundamentals @ 10:00 Sunday
+#     SEC EDGAR quarterly data — running daily wastes quota. Sunday avoids
+#     market hours and EDGAR traffic peaks. Friday would also work but Sunday
+#     gives a full weekend for any filing catch-up.
+#
+# WHY --attempt-deadline=540s (9 minutes):
+#     Default is 3 minutes which is too short for full pipeline runs.
+#     9 minutes covers the worst case (cold start + full STOOQ download).
+#     Cloud Functions Gen 2 max timeout is 60 minutes.
+
+jobs:
+
+  - name: daily-macro
+    description: "FRED + ECB SDW + WorldBank macro ingestion"
+    schedule: "0 8 * * *"
+    timezone: "Europe/Warsaw"
+    function: ingest_macro
+    attempt_deadline: 300s
+
+  - name: daily-sentiment
+    description: "Finnhub news sentiment + economic calendar"
+    schedule: "0 20 * * 1-5"
+    timezone: "Europe/Warsaw"
+    function: ingest_sentiment
+    attempt_deadline: 120s
+
+  - name: daily-prices
+    description: "yfinance UCITS ETF prices + STOOQ Polish market data"
+    schedule: "0 22 * * 1-5"
+    timezone: "Europe/Warsaw"
+    function: ingest_prices
+    attempt_deadline: 300s
+
+  - name: daily-ml
+    description: "Feature engineering + regime labels + ML inference + Parquet export"
+    schedule: "0 23 * * 1-5"
+    timezone: "Europe/Warsaw"
+    function: run_ml_pipeline
+    attempt_deadline: 540s
+
+  - name: weekly-fundamentals
+    description: "SEC EDGAR S&P 500 P/E ratio (weekly, dynamic weights from iShares)"
+    schedule: "0 10 * * 0"
+    timezone: "Europe/Warsaw"
+    function: ingest_prices
+    attempt_deadline: 600s
+    # WHY ingest_prices handles fundamentals:
+    # fundamentals.py is called inside pipeline.py on Friday/Sunday runs.
+    # For simplicity we trigger the same Cloud Function with a special header
+    # that signals it should run fundamentals. Alternative: separate function.
+    http_headers:
+      X-Run-Fundamentals: "true"

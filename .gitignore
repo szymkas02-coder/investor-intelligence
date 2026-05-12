@@ -1,0 +1,33 @@
+# Secrets — never commit
+.env
+
+# Database
+data/
+
+# Models (large binaries)
+models/*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Internal session docs — not for repo
+CLAUDE.md
+PROGRESS.md
+notebooks/
+
+# Misc
+*.bak

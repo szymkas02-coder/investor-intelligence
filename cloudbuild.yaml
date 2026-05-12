@@ -1,0 +1,71 @@
+# cloudbuild.yaml — triggered on every push to main branch
+#
+# What this does (automatically, on every git push):
+#   1. Builds the Docker image (Node frontend + Python backend)
+#   2. Pushes it to Artifact Registry
+#   3. Deploys to Cloud Run
+#
+# One-time setup:
+#   In GCP Console → Cloud Build → Triggers → Create trigger:
+#     - Source: your GitHub repo, branch: ^main$
+#     - Config: cloudbuild.yaml (this file)
+#     - Service account: leave default (Cloud Build SA)
+#   Grant the Cloud Build SA the Cloud Run Admin and Service Account User roles:
+#     gcloud projects add-iam-policy-binding PROJECT_ID \
+#       --member="serviceAccount:PROJECT_NUMBER@cloudbuild.gserviceaccount.com" \
+#       --role="roles/run.admin"
+#     gcloud projects add-iam-policy-binding PROJECT_ID \
+#       --member="serviceAccount:PROJECT_NUMBER@cloudbuild.gserviceaccount.com" \
+#       --role="roles/iam.serviceAccountUser"
+
+substitutions:
+  _REGION: europe-west1
+  _SERVICE: investor-intelligence
+  _SQL_INSTANCE: investor-pg
+
+steps:
+  # Build the Docker image
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:$COMMIT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:latest
+      - .
+
+  # Push both tags
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}
+
+  # Deploy to Cloud Run
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=1Gi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=3
+      - --concurrency=10
+      - --timeout=120
+      - --service-account=${_SERVICE}@$PROJECT_ID.iam.gserviceaccount.com
+      - --add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_SQL_INSTANCE}
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest,APP_SECRET=APP_SECRET:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FRED_API_KEY=FRED_API_KEY:latest,STOOQ_API_KEY=STOOQ_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/investor/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,13 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.loading { padding: 2rem; color: #6b7280; }
+.error   { padding: 1rem; color: #ef4444; }
+.success { padding: 0.5rem; color: #22c55e; margin-top: 0.5rem; }
+.empty   { color: #9ca3af; font-style: italic; }

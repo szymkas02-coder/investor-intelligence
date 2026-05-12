@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8080"
+    volumes:
+      # Mount local DB file into container — persistent, not baked into image
+      - ./data:/data:rw
+      # Optionally override models after retraining locally (uncomment if needed):
+      # - ./models:/app/models:ro
+    env_file:
+      - .env
+    environment:
+      DB_PATH: /data/investor_intelligence.duckdb
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend

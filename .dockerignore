@@ -1,0 +1,30 @@
+# Never bake secrets or data into the image
+.env
+data/
+
+# Dev artefacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.ipynb_checkpoints/
+
+# Frontend (served separately)
+frontend/
+
+# Notebooks and analysis
+notebooks/
+shiller.csv
+
+# Docs and config
+*.md
+CLAUDE.md
+PROGRESS.md
+.gitignore
+environment.yml
+
+# Cloud function source (deployed separately)
+cloud/
+
+# Git
+.git/
