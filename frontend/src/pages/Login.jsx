@@ -7,7 +7,7 @@ export default function Login() {
 
   function handleLogin() {
     // Redirect to FastAPI /auth/login which redirects to Google
-    window.location.href = '/api/auth/login'
+    window.location.href = '/auth/login'
   }
 
   // Dev mode: just hit /auth/me directly — backend returns dev user
