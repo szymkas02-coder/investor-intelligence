@@ -42,16 +42,44 @@ SCHEMA_PG   = Path(__file__).parent / "schema_pg.sql"
 def get_connection(db_path: Path = DB_PATH):
     """
     Returns a database connection.
-    - If DATABASE_URL is set: returns a psycopg2 connection to PostgreSQL
+    - If DATABASE_URL is set: returns a _PgAdapter-wrapped psycopg2 connection
     - Otherwise: returns a DuckDB connection to the local .duckdb file
 
-    TEACHING NOTE — both connection types support .execute(sql, params)
-    and .fetchall() so the calling code looks the same either way.
-    The difference is only in how you connect.
+    Both support .execute(sql, params) and .fetchall() identically.
     """
     if DATABASE_URL:
         import psycopg2
-        return psycopg2.connect(DATABASE_URL)
+
+        class _PgAdapter:
+            def __init__(self, conn):
+                self._conn = conn
+                self._last_cur = None
+
+            def execute(self, sql, params=None):
+                cur = self._conn.cursor()
+                cur.execute(sql, params) if params else cur.execute(sql)
+                self._last_cur = cur
+                return cur
+
+            def executemany(self, sql, params_list):
+                cur = self._conn.cursor()
+                cur.executemany(sql, params_list)
+                self._last_cur = cur
+                return cur
+
+            def fetchall(self):
+                return self._last_cur.fetchall()
+
+            def fetchone(self):
+                return self._last_cur.fetchone()
+
+            def commit(self):
+                self._conn.commit()
+
+            def close(self):
+                self._conn.close()
+
+        return _PgAdapter(psycopg2.connect(DATABASE_URL))
     else:
         import duckdb
         db_path.parent.mkdir(parents=True, exist_ok=True)
