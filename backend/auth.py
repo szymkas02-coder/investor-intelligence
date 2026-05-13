@@ -183,8 +183,8 @@ async def oauth_callback(code: str = Query(...)):
     # Issue our own JWT
     jwt = create_jwt(user_id, email)
 
-    # Return token to frontend (frontend stores in memory, not localStorage)
-    return {"access_token": jwt, "token_type": "bearer", "expires_in": JWT_TTL_SECONDS}
+    # Redirect to frontend with token in query param — OAuthCallback component picks it up
+    return RedirectResponse(url=f"/auth/callback?access_token={jwt}", status_code=302)
 
 
 @router.get("/me")
