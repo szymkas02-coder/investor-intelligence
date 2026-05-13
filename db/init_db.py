@@ -79,7 +79,9 @@ def get_connection(db_path: Path = DB_PATH):
             def close(self):
                 self._conn.close()
 
-        return _PgAdapter(psycopg2.connect(DATABASE_URL))
+        raw = psycopg2.connect(DATABASE_URL)
+        raw.autocommit = True
+        return _PgAdapter(raw)
     else:
         import duckdb
         db_path.parent.mkdir(parents=True, exist_ok=True)
