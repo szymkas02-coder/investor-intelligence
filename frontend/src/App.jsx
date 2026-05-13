@@ -11,7 +11,7 @@ import './App.css'
 function RequireAuth({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading">Loading...</div>
-  // Dev mode: backend returns dev-user even without a token
+  if (!user) return <Navigate to="/login" replace />
   return children
 }
 
