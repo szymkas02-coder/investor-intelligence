@@ -142,7 +142,7 @@ def login():
     return RedirectResponse(url=f"{GOOGLE_AUTH_URL}?{query}")
 
 
-@router.get("/callback")
+@router.get("/google/callback")
 async def oauth_callback(code: str = Query(...)):
     """
     Exchange Google auth code for ID token, verify it, issue our JWT.
