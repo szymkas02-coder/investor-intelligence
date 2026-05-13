@@ -93,6 +93,12 @@ def verify_jwt(token: str) -> dict:
 
 DEV_MODE = not GOOGLE_CLIENT_ID   # True when env vars not set
 
+import logging as _logging
+_logging.getLogger(__name__).warning(
+    "AUTH INIT: DEV_MODE=%s GOOGLE_CLIENT_ID=%s",
+    DEV_MODE, GOOGLE_CLIENT_ID[:10] + "..." if GOOGLE_CLIENT_ID else "EMPTY"
+)
+
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     """
