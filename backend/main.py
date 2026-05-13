@@ -99,6 +99,10 @@ _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
 if _FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=_FRONTEND_DIST / "assets"), name="assets")
 
+    @app.get("/", include_in_schema=False)
+    def serve_root():
+        return FileResponse(_FRONTEND_DIST / "index.html")
+
     @app.get("/{full_path:path}", include_in_schema=False)
     def serve_spa(full_path: str):
         candidate = _FRONTEND_DIST / full_path
