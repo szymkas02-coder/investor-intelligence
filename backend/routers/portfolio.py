@@ -654,7 +654,9 @@ _ALLOWED_EXTENSIONS = {".xlsx", ".csv"}
 _BROKER_PROMPT = """You are a data extraction assistant. The user has uploaded a broker transaction export.
 Your task: map the columns to this schema and return ONLY a JSON array of transaction objects.
 
-Required output schema per transaction:
+There are TWO types of valid rows:
+
+Type 1 — stock transaction:
 {
   "date": "YYYY-MM-DD",
   "ticker": "TICKER.EXCHANGE (Yahoo Finance format, e.g. VWCE.DE)",
@@ -666,6 +668,17 @@ Required output schema per transaction:
   "notes": "<optional string or null>"
 }
 
+Type 2 — cash deposit to investment account (IKE, IKZE, or similar):
+{
+  "date": "YYYY-MM-DD",
+  "type": "deposit",
+  "amount_pln": <positive number — deposit amount in PLN>,
+  "account_type": "regular",
+  "notes": "<optional string or null>"
+}
+
+For deposit rows: look for rows with type/description like "IKE Deposit", "IKZE Deposit", "Transfer in", "Deposit", "Wpłata" with a positive PLN amount and NO ticker/instrument.
+
 DO NOT convert prices to PLN — return the native price and currency. The backend will apply the correct historical FX rate.
 
 Ticker normalisation rules:
@@ -676,7 +689,7 @@ Ticker normalisation rules:
 
 Other rules:
 - Always set account_type to "regular" — the user will change it in the UI
-- Ignore rows that are clearly fees, taxes, currency exchanges, or transfers
+- Ignore rows that are fees, taxes, currency exchanges, or stock purchase/sale cash movements (those are captured by the buy/sell rows)
 - If you cannot determine a required field, omit that row
 - Return ONLY the JSON array. No explanation, no markdown fences, no other text."""
 
@@ -852,15 +865,34 @@ async def upload_broker(
         if tx_date > today:
             parse_errors.append(f"Row {row_num}: date {tx_date} is in the future"); continue
 
+        # type
+        tx_type = str(item.get("type", "")).strip().lower()
+        if tx_type not in ("buy", "sell", "dividend", "deposit"):
+            parse_errors.append(f"Row {row_num}: invalid type '{tx_type}'"); continue
+
+        # Handle deposit rows separately — no ticker/shares/price needed
+        if tx_type == "deposit":
+            try:
+                amount_pln = float(str(item.get("amount_pln", 0)).replace(",", "."))
+            except Exception:
+                parse_errors.append(f"Row {row_num}: amount_pln must be a number"); continue
+            if amount_pln <= 0:
+                parse_errors.append(f"Row {row_num}: amount_pln must be > 0"); continue
+            account_type = str(item.get("account_type", "IKE")).strip()
+            if account_type not in ("IKE", "IKZE", "regular"):
+                account_type = "IKE"
+            notes_raw = item.get("notes") or ""
+            notes = re.sub(r"[^\x20-\x7E]", "", str(notes_raw))[:200] or None
+            validated.append({
+                "date": tx_date.isoformat(), "type": "deposit",
+                "amount_pln": amount_pln, "account_type": account_type, "notes": notes,
+            })
+            continue
+
         # ticker — alphanumeric + dot + dash only
         ticker = str(item.get("ticker", "")).strip().upper()
         if not re.fullmatch(r"[A-Z0-9.\-]{1,20}", ticker):
             parse_errors.append(f"Row {row_num}: invalid ticker '{ticker}'"); continue
-
-        # type
-        tx_type = str(item.get("type", "")).strip().lower()
-        if tx_type not in ("buy", "sell", "dividend"):
-            parse_errors.append(f"Row {row_num}: invalid type '{tx_type}'"); continue
 
         # shares
         try:
@@ -876,14 +908,12 @@ async def upload_broker(
             currency = "EUR"  # safe default for European ETFs
 
         # Override AI-guessed currency with the actual currency from ticker_metadata.
-        # This fixes cases like ISAC.L which trades on LSE (looks like GBP) but is USD-denominated.
+        # Fixes cases like ISAC.L which trades on LSE (looks like GBP) but is USD-denominated.
         meta_row = db.execute(
             "SELECT currency FROM ticker_metadata WHERE ticker = %s", [ticker]
         ).fetchone()
         if meta_row and meta_row[0]:
             currency = meta_row[0].upper()
-            if currency == "GBP":
-                currency = "GBP"  # keep as-is (our FX calc handles GBP)
 
         try:
             price_native = float(str(item.get("price_native", 0)).replace(",", "."))
@@ -952,13 +982,45 @@ def confirm_broker_import(
         if tx_date > today:
             errors.append(f"Row {row_num}: date in the future"); continue
 
+        tx_type = str(item.get("type", "")).strip().lower()
+        if tx_type not in ("buy", "sell", "dividend", "deposit"):
+            errors.append(f"Row {row_num}: invalid type"); continue
+
+        # Deposit rows handled separately
+        if tx_type == "deposit":
+            try:
+                amount_pln = float(item.get("amount_pln", 0))
+            except Exception:
+                errors.append(f"Row {row_num}: invalid amount_pln"); continue
+            if amount_pln <= 0:
+                errors.append(f"Row {row_num}: amount_pln must be > 0"); continue
+            account_type = str(item.get("account_type", "IKE")).strip()
+            if account_type not in ("IKE", "IKZE", "regular"):
+                account_type = "IKE"
+            notes_raw = item.get("notes") or ""
+            notes = re.sub(r"[^\x20-\x7E]", "", str(notes_raw))[:200] or None
+            tx_id = str(uuid.uuid4())
+            db.execute("""
+                INSERT INTO user_transactions
+                    (transaction_id, user_id, ticker, date, type,
+                     shares, price_pln, account_type, notes)
+                VALUES (%s, %s, NULL, %s, 'deposit', NULL, %s, %s, %s)
+            """, [tx_id, user_id, tx_date, amount_pln, account_type, notes])
+            if account_type in ("IKE", "IKZE"):
+                limit = IKE_LIMITS.get(tx_date.year, 28260.0)
+                db.execute("""
+                    INSERT INTO ike_contributions (user_id, year, contributed_pln, limit_pln)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (user_id, year) DO UPDATE SET
+                        contributed_pln = ike_contributions.contributed_pln + EXCLUDED.contributed_pln,
+                        limit_pln = EXCLUDED.limit_pln
+                """, [user_id, tx_date.year, amount_pln, limit])
+            imported.append(tx_id)
+            continue
+
         ticker = str(item.get("ticker", "")).strip().upper()
         if not re.fullmatch(r"[A-Z0-9.\-]{1,20}", ticker):
             errors.append(f"Row {row_num}: invalid ticker"); continue
-
-        tx_type = str(item.get("type", "")).strip().lower()
-        if tx_type not in ("buy", "sell", "dividend"):
-            errors.append(f"Row {row_num}: invalid type"); continue
 
         try:
             shares    = float(item.get("shares", 0))
