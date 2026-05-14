@@ -8,8 +8,6 @@ POST /pipeline/run
   on a schedule; this endpoint is for manual triggers from the UI.
 """
 
-import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -25,12 +23,11 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
 def _run_pipeline():
-    """Run ingestion pipeline as subprocess — keeps FastAPI thread free."""
-    subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "ingestion" / "pipeline.py")],
-        cwd=str(PROJECT_ROOT),
-        check=False,
-    )
+    """Run ingestion pipeline in-process so Cloud Run doesn't kill it."""
+    import sys
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from ingestion.pipeline import run
+    run(skip_fundamentals=True)
 
 
 @router.post("/run", response_model=PipelineRunResponse)
