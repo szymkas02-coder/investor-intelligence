@@ -18,7 +18,11 @@
     "retry": "Retry",
     "noData": "No data available",
     "loadFailed": "Failed to load — try refreshing",
-    "someChartsFailed": "Some charts failed to load. Click Retry to reload, or refresh the page."
+    "someChartsFailed": "Some charts failed to load. Click Retry to reload, or refresh the page.",
+    "timeAgoH": "{{h}}h {{m}}m ago",
+    "timeAgoM": "{{m}}m ago",
+    "fetchingPrice": "fetching...",
+    "usePrice": "Use {{price}} PLN"
   },
   "login": {
     "subtitle": "Monthly IKE investment decisions, macro-informed.",
@@ -266,6 +270,7 @@
     "riskOn": "Risk-on",
     "riskOff": "Risk-off",
     "stagflation": "Stagflation",
-    "deflation": "Deflation"
+    "deflation": "Deflation",
+    "poland": "Poland"
   }
 }

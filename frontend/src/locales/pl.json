@@ -18,7 +18,11 @@
     "retry": "Ponów",
     "noData": "Brak danych",
     "loadFailed": "Błąd ładowania — spróbuj odświeżyć",
-    "someChartsFailed": "Niektóre wykresy nie załadowały się. Kliknij Ponów lub odśwież stronę."
+    "someChartsFailed": "Niektóre wykresy nie załadowały się. Kliknij Ponów lub odśwież stronę.",
+    "timeAgoH": "{{h}}h {{m}}m temu",
+    "timeAgoM": "{{m}}m temu",
+    "fetchingPrice": "pobieranie...",
+    "usePrice": "Użyj {{price}} PLN"
   },
   "login": {
     "subtitle": "Miesięczne decyzje inwestycyjne IKE, oparte na makro.",
@@ -266,6 +270,7 @@
     "riskOn": "Ryzyko włączone",
     "riskOff": "Ryzyko wyłączone",
     "stagflation": "Stagflacja",
-    "deflation": "Deflacja"
+    "deflation": "Deflacja",
+    "poland": "Polska"
   }
 }

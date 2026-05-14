@@ -24,7 +24,7 @@ function TimeAgo({ isoString }) {
   const diffMs = Date.now() - dt.getTime()
   const diffH  = Math.floor(diffMs / 3600000)
   const diffM  = Math.floor((diffMs % 3600000) / 60000)
-  const label  = diffH > 0 ? `${diffH}h ${diffM}m ago` : `${diffM}m ago`
+  const label  = diffH > 0 ? t('common.timeAgoH', { h: diffH, m: diffM }) : t('common.timeAgoM', { m: diffM })
   return <span className="time-ago" title={dt.toLocaleString()}>{label}</span>
 }
 

@@ -301,9 +301,9 @@ export default function History() {
                 <ReferenceLine y={2} stroke="#94a3b8" strokeDasharray="4 2"
                                label={{ value: t('history.targetLine'), position: 'right', fontSize: 10, fill: '#94a3b8' }} />
                 <Legend />
-                <Line type="monotone" dataKey="cpi_us_yoy" name="US"     stroke="#3b82f6" dot={false} strokeWidth={2} connectNulls />
-                <Line type="monotone" dataKey="cpi_ea_yoy" name="EA"     stroke="#f97316" dot={false} strokeWidth={2} connectNulls />
-                <Line type="monotone" dataKey="cpi_pl_yoy" name="Polska" stroke="#a855f7" dot={false} strokeWidth={2} connectNulls />
+                <Line type="monotone" dataKey="cpi_us_yoy" name="US"                  stroke="#3b82f6" dot={false} strokeWidth={2} connectNulls />
+                <Line type="monotone" dataKey="cpi_ea_yoy" name="EA"                  stroke="#f97316" dot={false} strokeWidth={2} connectNulls />
+                <Line type="monotone" dataKey="cpi_pl_yoy" name={t('history.poland')} stroke="#a855f7" dot={false} strokeWidth={2} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -319,7 +319,7 @@ export default function History() {
                 <Tooltip formatter={(v) => v != null ? `${v.toFixed(2)}%` : '—'} labelFormatter={l => l} />
                 <Legend />
                 <Line type="monotone" dataKey="fed_funds_rate" name="Fed Funds" stroke="#3b82f6" dot={false} strokeWidth={2} connectNulls />
-                <Line type="monotone" dataKey="ecb_rate"       name="EBC"       stroke="#f97316" dot={false} strokeWidth={2} connectNulls />
+                <Line type="monotone" dataKey="ecb_rate"       name="ECB"       stroke="#f97316" dot={false} strokeWidth={2} connectNulls />
                 <Line type="monotone" dataKey="nbp_rate"       name="NBP"       stroke="#a855f7" dot={false} strokeWidth={2} connectNulls />
               </LineChart>
             </ResponsiveContainer>

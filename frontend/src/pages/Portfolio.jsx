@@ -822,11 +822,11 @@ export default function Portfolio() {
                 <div>
                   <label>
                     {t('portfolio.pricePln')}
-                    {priceLoading && <span className="price-fetching"> fetching...</span>}
+                    {priceLoading && <span className="price-fetching"> {t('common.fetchingPrice')}</span>}
                     {priceHint && !priceLoading && (
                       <button type="button" className="price-autofill-btn"
                               onClick={() => setForm(f => ({ ...f, price_pln: priceHint.price_pln }))}>
-                        Use {priceHint.price_pln.toFixed(2)} PLN
+                        {t('common.usePrice', { price: priceHint.price_pln.toFixed(2) })}
                         <span className="price-hint-meta">
                           ({priceHint.price_native} {priceHint.currency} · {priceHint.price_date})
                         </span>
