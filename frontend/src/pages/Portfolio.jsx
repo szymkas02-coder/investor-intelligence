@@ -274,7 +274,7 @@ export default function Portfolio() {
       {/* IKE multi-year history */}
       {ikeHistory?.years?.length > 0 && (
         <div className="card">
-          <h3>{t('portfolio.ikeContributions', { year: '' })} Historia</h3>
+          <h3>{t('portfolio.ikeHistory')}</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={ikeHistory.years} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -604,7 +604,7 @@ export default function Portfolio() {
               <select value={form.account_type} onChange={e => setForm({ ...form, account_type: e.target.value })}>
                 <option value="IKE">IKE</option>
                 <option value="IKZE">IKZE</option>
-                {form.type !== 'deposit' && <option value="regular">Regular</option>}
+                {form.type !== 'deposit' && <option value="regular">{t('portfolio.regular')}</option>}
               </select>
             </div>
 
@@ -619,7 +619,7 @@ export default function Portfolio() {
               <>
                 <div className="ticker-field">
                   <label>{t('portfolio.ticker')}</label>
-                  <input placeholder="e.g. VWCE.DE" required list="ticker-list"
+                  <input placeholder={t('portfolio.tickerPlaceholder')} required list="ticker-list"
                          value={form.ticker}
                          onChange={e => setForm({ ...form, ticker: e.target.value.toUpperCase() })} />
                   <datalist id="ticker-list">
@@ -650,7 +650,7 @@ export default function Portfolio() {
                 </div>
                 {form.shares && form.price_pln && (
                   <div className="tx-total-preview">
-                    Total: <strong>{(parseFloat(form.shares) * parseFloat(form.price_pln)).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} PLN</strong>
+                    {t('portfolio.totalPreview')}: <strong>{(parseFloat(form.shares) * parseFloat(form.price_pln)).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} PLN</strong>
                   </div>
                 )}
               </>
@@ -658,7 +658,7 @@ export default function Portfolio() {
 
             <div className="tx-form-notes">
               <label>{t('portfolio.notes')}</label>
-              <input placeholder="Optional" value={form.notes}
+              <input placeholder={t('portfolio.optional')} value={form.notes}
                      onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
             <div className="tx-form-btns">

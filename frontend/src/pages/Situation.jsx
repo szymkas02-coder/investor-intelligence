@@ -113,7 +113,7 @@ export default function Situation() {
           : <p className="empty">{t('situation.noPulse')}</p>
         }
 
-        <p className="situation-powered">Powered by Gemini 2.5 Flash + Google Search</p>
+        <p className="situation-powered">{t('situation.poweredPulse')}</p>
       </div>
 
       <div className="card situation-card">
@@ -133,7 +133,7 @@ export default function Situation() {
           : <p className="empty">{t('situation.noBriefing')}</p>
         }
 
-        <p className="situation-powered">Powered by Gemini 2.5 Flash + Google Search · Updated weekly</p>
+        <p className="situation-powered">{t('situation.poweredBriefing')}</p>
       </div>
 
       <div className="card situation-card chat-card">
@@ -148,7 +148,7 @@ export default function Situation() {
           )}
           {messages.map((m, i) => (
             <div key={i} className={`chat-msg chat-msg-${m.role}${m.error ? ' chat-msg-error' : ''}`}>
-              <span className="chat-role">{m.role === 'user' ? 'You' : 'Assistant'}</span>
+              <span className="chat-role">{m.role === 'user' ? t('situation.you') : t('situation.assistant')}</span>
               <div className="chat-text">
                 {m.role === 'assistant'
                   ? <ReactMarkdown>{m.text}</ReactMarkdown>

@@ -117,7 +117,7 @@ export default function SignalPanel() {
             note={cape.note ? t(cape.note, cape.note) : null}>
             <div className="signal-main-label"
                  style={{ color: cape.ret_q50 < 0.02 ? '#ef4444' : cape.ret_q50 < 0.05 ? '#f97316' : '#22c55e' }}>
-              {(cape.ret_q50 * 100).toFixed(1)}% real
+              {(cape.ret_q50 * 100).toFixed(1)}% {t('signals.real')}
             </div>
             <div className="cape-band">
               <div className="cape-band-row"><span>{t('signals.p10')}</span><strong>{(cape.ret_q10 * 100).toFixed(1)}%</strong></div>
