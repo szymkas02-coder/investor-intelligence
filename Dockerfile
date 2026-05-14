@@ -32,19 +32,9 @@ COPY utils/     ./utils/
 COPY shiller.csv ./shiller.csv
 
 # Download ML model artifacts from GCS at build time
-RUN mkdir -p ./models
 RUN pip install --no-cache-dir google-cloud-storage==2.18.2
-RUN python - <<'EOF'
-from google.cloud import storage
-import os, pathlib
-bucket = storage.Client().bucket("investor-intelligence-496113-backup")
-models_dir = pathlib.Path("./models")
-for blob in bucket.list_blobs(prefix="models/"):
-    fname = blob.name.split("/", 1)[1]
-    if fname:
-        blob.download_to_filename(str(models_dir / fname))
-        print(f"Downloaded {fname}")
-EOF
+COPY scripts/download_models.py ./scripts/download_models.py
+RUN mkdir -p ./models && python scripts/download_models.py
 
 # Copy built React app into a location FastAPI will serve as static files
 COPY --from=frontend-build /frontend/dist ./frontend/dist
