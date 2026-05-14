@@ -103,17 +103,27 @@ export default function Decision() {
                 <strong>{(proj.ensemble.base_rate_return * 100).toFixed(1)}%</strong>
                 <small>{t('decision.baseRateNote', { weight: (proj.ensemble.weights.base_rate * 100).toFixed(0) })}</small>
               </div>
-              <div className="ensemble-item">
-                <span>{t('decision.momentum')}</span>
-                <strong>{(proj.ensemble.momentum_return * 100).toFixed(1)}%</strong>
-                <small>{t('decision.momentumNote', { adj: (proj.ensemble.momentum_adj >= 0 ? '+' : '') + (proj.ensemble.momentum_adj * 100).toFixed(2), weight: (proj.ensemble.weights.momentum * 100).toFixed(0) })}</small>
-              </div>
+              {proj.ensemble.weights.momentum === 0 ? (
+                <div className="ensemble-item" style={{ opacity: 0.4 }}>
+                  <span>{t('decision.momentum')}</span>
+                  <strong>—</strong>
+                  <small>{t('decision.momentumNA')}</small>
+                </div>
+              ) : (
+                <div className="ensemble-item">
+                  <span>{t('decision.momentum')}</span>
+                  <strong>{(proj.ensemble.momentum_return * 100).toFixed(1)}%</strong>
+                  <small>{t('decision.momentumNote', { adj: (proj.ensemble.momentum_adj >= 0 ? '+' : '') + (proj.ensemble.momentum_adj * 100).toFixed(2), weight: (proj.ensemble.weights.momentum * 100).toFixed(0) })}</small>
+                </div>
+              )}
               <div className="ensemble-item ensemble-result">
                 <span>{t('decision.ensembleMedian')}</span>
                 <strong>{(proj.ensemble.ensemble_median * 100).toFixed(1)}%</strong>
                 <small>± {(proj.ensemble.ensemble_std * 100).toFixed(1)}% std · {t('decision.currentPortfolio', { value: proj.current_value_pln.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) })}</small>
               </div>
             </div>
+
+            <p className="proj-horizon-note">{t('decision.horizonNote')}</p>
 
             <ResponsiveContainer width="100%" height={320}>
               <AreaChart data={proj.paths} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
