@@ -213,7 +213,13 @@
     "parsing": "Parsing...",
     "aiParsed": "AI parsed {{count}} transaction(s) — review before importing",
     "confirmImport": "Confirm import ({{count}} rows)",
-    "setAllTo": "Set all to:"
+    "setAllTo": "Set all to:",
+    "analysis": "Portfolio Breakdown",
+    "regions": "Region Breakdown",
+    "sectors": "Sector Breakdown",
+    "coverage": "{{pct}}% of portfolio value covered (allocation data available)",
+    "noCoverage": "No allocation data available for held positions.",
+    "loadingAnalysis": "Loading analysis..."
   },
   "components": {
     "annualised": "annualised",

@@ -1111,6 +1111,128 @@ def delete_all_transactions(
     return TransactionResponse(transaction_id="", message="All transactions and positions deleted.")
 
 
+@router.get("/analysis")
+def get_portfolio_analysis(
+    db:      Annotated[object, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+):
+    """Return weighted region + sector breakdown across all held ETF positions.
+
+    Logic:
+      1. Fetch current positions with PLN values (same FX logic as get_portfolio).
+      2. For each position, look up etf_allocations for that ticker.
+      3. Weight each region/sector allocation by the position's PLN value.
+      4. Normalise totals to 100%.
+      5. Return {regions, sectors, total_value_pln, coverage_pct}.
+
+    coverage_pct = fraction of total portfolio value that has allocation data.
+    """
+    # FX rates
+    fx_row = db.execute("""
+        SELECT eurpln, usdpln FROM daily_features
+        WHERE eurpln IS NOT NULL AND usdpln IS NOT NULL
+        ORDER BY date DESC LIMIT 1
+    """).fetchone()
+    eurpln = float(fx_row[0]) if fx_row else 4.25
+    usdpln = float(fx_row[1]) if fx_row else 3.85
+    gbppln = eurpln * 1.17
+
+    # Positions with current price and currency
+    pos_rows = db.execute(f"""
+        SELECT p.ticker, p.shares,
+               r.adj_close AS current_price_native,
+               COALESCE(m.currency, 'USD') AS currency
+        FROM user_positions p
+        LEFT JOIN (
+            SELECT rp.ticker, rp.adj_close
+            FROM raw_prices rp
+            INNER JOIN (
+                SELECT ticker, MAX(date) AS max_date
+                FROM raw_prices WHERE source = 'yfinance'
+                GROUP BY ticker
+            ) latest ON rp.ticker = latest.ticker AND rp.date = latest.max_date
+            WHERE rp.source = 'yfinance'
+        ) r ON p.ticker = r.ticker
+        LEFT JOIN ticker_metadata m ON m.ticker = p.ticker
+        WHERE p.user_id = '{user_id}'
+    """).fetchall()
+
+    if not pos_rows:
+        return {
+            "regions": [], "sectors": [],
+            "total_value_pln": 0.0, "coverage_pct": 0.0,
+        }
+
+    # Compute PLN value per position
+    position_values = {}  # ticker -> value_pln (may aggregate multiple account_types)
+    for ticker, shares, price_native, ticker_currency in pos_rows:
+        if price_native is None:
+            continue
+        if ticker_currency == 'EUR':
+            price_pln = float(price_native) * eurpln
+        elif ticker_currency in ('GBP', 'GBp'):
+            price_pln = float(price_native) * gbppln
+        else:
+            price_pln = float(price_native) * usdpln
+        val = float(shares) * price_pln
+        position_values[ticker] = position_values.get(ticker, 0.0) + val
+
+    total_value = sum(position_values.values())
+    if total_value <= 0:
+        return {
+            "regions": [], "sectors": [],
+            "total_value_pln": 0.0, "coverage_pct": 0.0,
+        }
+
+    # Fetch allocation data for all held tickers in one query
+    tickers_held = list(position_values.keys())
+    placeholders = ", ".join(["%s"] * len(tickers_held))
+    alloc_rows = db.execute(
+        f"SELECT ticker, allocation_type, label, weight FROM etf_allocations WHERE ticker IN ({placeholders})",
+        tickers_held,
+    ).fetchall()
+
+    # Build lookup: ticker -> {alloc_type -> {label -> weight}}
+    alloc_map: dict = {}
+    for ticker, alloc_type, label, weight in alloc_rows:
+        alloc_map.setdefault(ticker, {}).setdefault(alloc_type, {})[label] = float(weight)
+
+    # Weighted aggregation
+    region_totals: dict[str, float] = {}
+    sector_totals: dict[str, float] = {}
+    covered_value = 0.0
+
+    for ticker, val in position_values.items():
+        ticker_allocs = alloc_map.get(ticker)
+        if not ticker_allocs:
+            continue  # no data for this ticker — skip (reduces coverage_pct)
+        covered_value += val
+        weight_fraction = val / total_value  # how much of portfolio this ticker is
+
+        for label, w in ticker_allocs.get("region", {}).items():
+            region_totals[label] = region_totals.get(label, 0.0) + w * weight_fraction
+
+        for label, w in ticker_allocs.get("sector", {}).items():
+            sector_totals[label] = sector_totals.get(label, 0.0) + w * weight_fraction
+
+    # Normalise to covered portion only, then express as % of portfolio
+    # (weights already sum correctly if ETF weights sum to 1.0)
+    def _to_sorted_list(totals: dict) -> list:
+        if not totals:
+            return []
+        items = sorted(totals.items(), key=lambda x: x[1], reverse=True)
+        return [{"label": lbl, "weight_pct": round(w * 100, 2)} for lbl, w in items]
+
+    coverage_pct = round(covered_value / total_value * 100, 1) if total_value > 0 else 0.0
+
+    return {
+        "regions":         _to_sorted_list(region_totals),
+        "sectors":         _to_sorted_list(sector_totals),
+        "total_value_pln": round(total_value, 2),
+        "coverage_pct":    coverage_pct,
+    }
+
+
 @router.get("/ike-history")
 def get_ike_history(
     db:      Annotated[object, Depends(get_db)],

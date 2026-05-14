@@ -145,6 +145,7 @@ if DB_URL:
 
     def run_migrations():
         """Create any missing tables. Safe to run on every startup (IF NOT EXISTS)."""
+        from backend.etf_seed_allocations import seed_etf_allocations
         raw = _get_pool().getconn()
         try:
             cur = raw.cursor()
@@ -161,6 +162,21 @@ if DB_URL:
                 CREATE INDEX IF NOT EXISTS idx_chat_history_user_created
                 ON chat_history (user_id, created_at DESC)
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS etf_allocations (
+                    ticker          VARCHAR(20)   NOT NULL,
+                    allocation_type VARCHAR(20)   NOT NULL,
+                    label           VARCHAR(100)  NOT NULL,
+                    weight          DECIMAL(8,6)  NOT NULL,
+                    updated_at      TIMESTAMPTZ   DEFAULT NOW(),
+                    PRIMARY KEY (ticker, allocation_type, label)
+                )
+            """)
+            raw.commit()
+            # Seed allocation data — uses _PgAdapter so it can reuse the same pattern
+            from backend.database import _PgAdapter
+            adapter = _PgAdapter(raw)
+            seed_etf_allocations(adapter)
             raw.commit()
         finally:
             _get_pool().putconn(raw)

@@ -6,6 +6,7 @@ import client from '../api/client'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell,
+  PieChart, Pie,
 } from 'recharts'
 
 function fetchTickers() {
@@ -16,6 +17,9 @@ function fetchPortfolio() {
 }
 function fetchIkeHistory() {
   return client.get('/portfolio/ike-history').then(r => r.data)
+}
+function fetchAnalysis() {
+  return client.get('/portfolio/analysis').then(r => r.data)
 }
 function fetchTransactions(filters) {
   const params = new URLSearchParams()
@@ -37,6 +41,12 @@ const EMPTY_TX = {
 
 const TYPE_COLOR = { buy: '#22c55e', sell: '#ef4444', dividend: '#3b82f6' }
 const TYPE_LABEL = { buy: 'Buy', sell: 'Sell', dividend: 'Div' }
+
+// Colours for region/sector pie charts
+const ANALYSIS_COLORS = [
+  '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6',
+  '#06b6d4', '#f97316', '#10b981', '#ec4899', '#64748b', '#a3e635',
+]
 
 function exportCSV(transactions) {
   const header = ['Date', 'Ticker', 'Type', 'Shares', 'Price (PLN)', 'Total (PLN)', 'Account', 'Notes']
@@ -92,6 +102,11 @@ export default function Portfolio() {
 
   const { data, isLoading: posLoading } = useQuery({ queryKey: ['portfolio'], queryFn: fetchPortfolio })
   const { data: ikeHistory } = useQuery({ queryKey: ['ike-history'], queryFn: fetchIkeHistory })
+  const { data: analysisData, isLoading: analysisLoading } = useQuery({
+    queryKey: ['portfolio-analysis'],
+    queryFn: fetchAnalysis,
+    staleTime: 5 * 60 * 1000,
+  })
   const { data: tickersData } = useQuery({ queryKey: ['tickers'], queryFn: fetchTickers, staleTime: 10 * 60 * 1000 })
   const availableTickers = tickersData ?? []
   const tickerNames = Object.fromEntries(availableTickers.map(t => [t.ticker, t.name || t.ticker]))
@@ -103,6 +118,7 @@ export default function Portfolio() {
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['portfolio'] })
     qc.invalidateQueries({ queryKey: ['transactions'] })
+    qc.invalidateQueries({ queryKey: ['portfolio-analysis'] })
   }
 
   const addMutation = useMutation({
