@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import {
   ComposedChart, AreaChart, LineChart,
   Area, Line,
@@ -127,6 +128,7 @@ function makeXAxis(rows, days) {
 }
 
 export default function History() {
+  const { t } = useTranslation()
   const [ticker,       setTicker]       = useState('VWCE.DE')
   const [days,         setDays]         = useState(1095)
   const [tickerSearch, setTickerSearch] = useState('')

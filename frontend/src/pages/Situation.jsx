@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import client from '../api/client'
 import ReactMarkdown from 'react-markdown'
 
@@ -14,7 +15,8 @@ function postChat(message) {
 }
 
 function TimeAgo({ isoString }) {
-  if (!isoString) return <span className="time-ago">never</span>
+  const { t } = useTranslation()
+  if (!isoString) return <span className="time-ago">{t('common.never')}</span>
   const dt = new Date(isoString)
   const diffMs = Date.now() - dt.getTime()
   const diffH  = Math.floor(diffMs / 3600000)
@@ -24,16 +26,18 @@ function TimeAgo({ isoString }) {
 }
 
 function NextUpdate({ isoString, intervalH }) {
+  const { t } = useTranslation()
   if (!isoString) return null
   const next = new Date(new Date(isoString).getTime() + intervalH * 3600000)
   const diffMs = next.getTime() - Date.now()
-  if (diffMs <= 0) return <span className="next-update">update due</span>
+  if (diffMs <= 0) return <span className="next-update">{t('common.updateDue')}</span>
   const h = Math.floor(diffMs / 3600000)
   const m = Math.floor((diffMs % 3600000) / 60000)
-  return <span className="next-update">next update in {h > 0 ? `${h}h ${m}m` : `${m}m`}</span>
+  return <span className="next-update">{t('common.nextUpdateIn')} {h > 0 ? `${h}h ${m}m` : `${m}m`}</span>
 }
 
 export default function Situation() {
+  const { t } = useTranslation()
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['situation'],
     queryFn:  fetchSituation,
@@ -45,7 +49,6 @@ export default function Situation() {
     onSuccess:  () => refetch(),
   })
 
-  // Chat state
   const [messages, setMessages]   = useState([])
   const [input,    setInput]      = useState('')
   const [sending,  setSending]    = useState(false)
@@ -82,71 +85,66 @@ export default function Situation() {
   return (
     <div className="situation-page">
 
-      {/* ── News Pulse ── */}
       <div className="card situation-card">
         <div className="situation-header">
-          <h3>Latest News Pulse</h3>
+          <h3>{t('situation.pulse')}</h3>
           <div className="situation-meta">
             {pulse?.created_at
               ? <><TimeAgo isoString={pulse.created_at} /> · <NextUpdate isoString={pulse.created_at} intervalH={6} /></>
-              : <span className="time-ago">no data yet</span>
+              : <span className="time-ago">{t('common.never')}</span>
             }
             <button
               className="btn-ghost btn-sm"
               onClick={() => refreshMutation.mutate()}
               disabled={refreshMutation.isPending}
             >
-              {refreshMutation.isPending ? 'Refreshing…' : '↻ Refresh'}
+              {refreshMutation.isPending ? t('situation.refreshing') : `↻ ${t('situation.refresh')}`}
             </button>
           </div>
         </div>
 
         {refreshMutation.isError && (
-          <p className="situation-err">{refreshMutation.error?.response?.data?.detail ?? 'Refresh failed.'}</p>
+          <p className="situation-err">{refreshMutation.error?.response?.data?.detail ?? t('situation.refreshFailed')}</p>
         )}
 
-        {isLoading ? <p className="loading-text">Loading…</p> :
+        {isLoading ? <p className="loading-text">{t('common.loading')}</p> :
          pulse?.content
           ? <div className="situation-content"><ReactMarkdown>{pulse.content}</ReactMarkdown></div>
-          : <p className="empty">No pulse data yet. Click Refresh to generate the first one.</p>
+          : <p className="empty">{t('situation.noPulse')}</p>
         }
 
         <p className="situation-powered">Powered by Gemini 2.5 Flash + Google Search</p>
       </div>
 
-      {/* ── Weekly Briefing ── */}
       <div className="card situation-card">
         <div className="situation-header">
-          <h3>Weekly Briefing</h3>
+          <h3>{t('situation.briefing')}</h3>
           <div className="situation-meta">
             {briefing?.created_at
               ? <><TimeAgo isoString={briefing.created_at} /> · <NextUpdate isoString={briefing.created_at} intervalH={168} /></>
-              : <span className="time-ago">no data yet</span>
+              : <span className="time-ago">{t('common.never')}</span>
             }
           </div>
         </div>
 
-        {isLoading ? <p className="loading-text">Loading…</p> :
+        {isLoading ? <p className="loading-text">{t('common.loading')}</p> :
          briefing?.content
           ? <div className="situation-content"><ReactMarkdown>{briefing.content}</ReactMarkdown></div>
-          : <p className="empty">No weekly briefing yet. The first one will be generated on Sunday.</p>
+          : <p className="empty">{t('situation.noBriefing')}</p>
         }
 
         <p className="situation-powered">Powered by Gemini 2.5 Flash + Google Search · Updated weekly</p>
       </div>
 
-      {/* ── Chat ── */}
       <div className="card situation-card chat-card">
         <div className="situation-header">
-          <h3>AI Assistant</h3>
-          <span className="situation-powered" style={{ marginTop: 0 }}>Powered by Gemini 3 Flash</span>
+          <h3>{t('situation.chat')}</h3>
+          <span className="situation-powered" style={{ marginTop: 0 }}>{t('situation.chatPowered')}</span>
         </div>
 
         <div className="chat-messages">
           {messages.length === 0 && (
-            <p className="chat-placeholder">
-              Ask me anything about the current macro situation, the app's signals, or your VWCE investment strategy.
-            </p>
+            <p className="chat-placeholder">{t('situation.chatPlaceholder')}</p>
           )}
           {messages.map((m, i) => (
             <div key={i} className={`chat-msg chat-msg-${m.role}${m.error ? ' chat-msg-error' : ''}`}>
@@ -162,7 +160,7 @@ export default function Situation() {
           {sending && (
             <div className="chat-msg chat-msg-assistant">
               <span className="chat-role">Assistant</span>
-              <div className="chat-text chat-thinking">Thinking…</div>
+              <div className="chat-text chat-thinking">{t('situation.thinking')}</div>
             </div>
           )}
           <div ref={bottomRef} />
@@ -173,11 +171,11 @@ export default function Situation() {
             className="chat-input"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Ask about macro, signals, or your portfolio…"
+            placeholder={t('situation.chatPlaceholder')}
             disabled={sending}
           />
           <button className="btn-primary" type="submit" disabled={sending || !input.trim()}>
-            Send
+            {t('situation.send')}
           </button>
         </form>
       </div>

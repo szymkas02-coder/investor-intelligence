@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import client from '../api/client'
 
 import {
@@ -55,6 +56,7 @@ function exportCSV(transactions) {
 
 export default function Portfolio() {
   const qc = useQueryClient()
+  const { t } = useTranslation()
   const [form,      setForm]      = useState(EMPTY_TX)
   const [msg,       setMsg]       = useState('')
   const [editId,     setEditId]    = useState(null)
@@ -298,8 +300,8 @@ export default function Portfolio() {
             Total: {data.total_value_pln?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) ?? '—'} PLN
           </span>}
         </h3>
-        {posLoading ? <p>Loading...</p> :
-         !data?.positions.length ? <p className="empty">No positions yet.</p> :
+        {posLoading ? <p>{t('common.loading')}</p> :
+         !data?.positions.length ? <p className="empty">{t('portfolio.noPositions')}</p> :
         <table className="positions-table">
           <thead>
             <tr>
@@ -334,26 +336,26 @@ export default function Portfolio() {
           <div className="tx-actions">
             {transactions.length > 0 && (
               <button className="btn-ghost btn-sm" onClick={() => exportCSV(transactions)}>
-                ↓ Export CSV
+                {t('portfolio.export')}
               </button>
             )}
             <button className="btn-ghost btn-sm" onClick={downloadTemplate}>
-              ↓ Template
+              {t('portfolio.downloadTemplate')}
             </button>
             <button className="btn-ghost btn-sm" onClick={() => uploadRef.current?.click()} disabled={uploading}>
-              {uploading ? 'Uploading...' : '↑ Import Excel'}
+              {uploading ? t('common.loading') : t('portfolio.importExcel')}
             </button>
             <input ref={uploadRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={handleUpload} />
             <button className="btn-ghost btn-sm" onClick={() => brokerUploadRef.current?.click()} disabled={brokerParsing}>
-              {brokerParsing ? 'AI parsing...' : '↑ Import from broker'}
+              {brokerParsing ? t('common.loading') : t('portfolio.importBroker')}
             </button>
             <input ref={brokerUploadRef} type="file" accept=".xlsx,.csv" style={{ display: 'none' }} onChange={handleBrokerUpload} />
             <button className="btn-danger btn-sm" onClick={() => setConfirmDelAll(1)}
                     disabled={!transactions.length}>
-              ✕ Delete all
+              ✕ {t('portfolio.deleteAll')}
             </button>
             <button className="btn-primary btn-sm" onClick={() => { setShowForm(v => !v); setEditId(null); setForm(EMPTY_TX) }}>
-              {showForm && !editId ? '✕ Cancel' : '+ Add transaction'}
+              {showForm && !editId ? `✕ ${t('portfolio.cancel')}` : `+ ${t('portfolio.addTransaction')}`}
             </button>
           </div>
         </div>
