@@ -211,6 +211,24 @@ class ChatRequest(BaseModel):
 _CHAT_HISTORY_TURNS = 10  # how many past turns (user+assistant pairs) to inject
 
 
+@router.get("/chat/history")
+def get_chat_history(
+    db:      Annotated[object, Depends(get_db)],
+    user_id: Annotated[str, Depends(get_current_user)],
+):
+    """Return last N chat turns for display in the UI on page load."""
+    rows = db.execute("""
+        SELECT role, content, created_at FROM (
+            SELECT role, content, created_at
+            FROM chat_history
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+        ) sub ORDER BY created_at ASC
+    """, [user_id, _CHAT_HISTORY_TURNS * 2]).fetchall()
+    return {"messages": [{"role": r[0], "text": r[1]} for r in rows]}
+
+
 # ---------------------------------------------------------------------------
 # Tool implementations — called when Gemini requests them
 # ---------------------------------------------------------------------------

@@ -93,11 +93,19 @@ export default function Decision() {
         {projLoading ? <p>{t('decision.loadingProj')}</p> : proj && (
           <>
             <div className="ensemble-grid">
-              <div className="ensemble-item">
-                <span>{t('decision.capeSignal')}</span>
-                <strong>{(proj.ensemble.cape_return * 100).toFixed(1)}%</strong>
-                <small>{t('decision.capeDecile', { decile: proj.ensemble.cape_decile, weight: (proj.ensemble.weights.cape * 100).toFixed(0) })}</small>
-              </div>
+              {proj.ensemble.weights.cape === 0 ? (
+                <div className="ensemble-item" style={{ opacity: 0.4 }}>
+                  <span>{t('decision.capeSignal')}</span>
+                  <strong>—</strong>
+                  <small>{t('decision.capeNA')}</small>
+                </div>
+              ) : (
+                <div className="ensemble-item">
+                  <span>{t('decision.capeSignal')}</span>
+                  <strong>{(proj.ensemble.cape_return * 100).toFixed(1)}%</strong>
+                  <small>{t('decision.capeDecile', { decile: proj.ensemble.cape_decile, weight: (proj.ensemble.weights.cape * 100).toFixed(0) })}</small>
+                </div>
+              )}
               <div className="ensemble-item">
                 <span>{t('decision.baseRate')}</span>
                 <strong>{(proj.ensemble.base_rate_return * 100).toFixed(1)}%</strong>

@@ -119,6 +119,7 @@
     "p10label": "10. percentyl",
     "horizonNote": "Wagi zmieniają się z horyzontem: momentum dominuje w 1-3L, CAPE w 2-10L, stopa bazowa w 10L+.",
     "momentumNA": "niedostępne przy tym horyzoncie",
+    "capeNA": "niedostępne przy tym horyzoncie",
     "disclaimer": "Ensemble trzech sygnałów: CAPE USA (Asness/AQR 2012), długookresowa historyczna stopa bazowa (Dimson-Marsh-Staunton Global Returns Yearbook 2025, 1900–2024) oraz korekta momentum/wyceny z bieżących danych rynkowych. Zwroty realne — bez uwzględnienia inflacji. Nie stanowi porady finansowej."
   },
   "situation": {

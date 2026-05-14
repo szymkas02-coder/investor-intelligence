@@ -54,11 +54,15 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
         p_bear = float(hmm_row[3] or 0)
         p_cons = float(hmm_row[4] or 0)
         total  = p_bull + p_bear + p_cons
+        # Normalise 'stagflation' to 'consolidation' — they are the same HMM state
+        # (HMM has no stagflation state; the label was historically mapped from consolidation)
+        if state == "stagflation":
+            state = "consolidation"
         if total < 0.01:
             # Underflow — assign 99% to active state
             p_bull = 0.99 if state == "bull" else 0.005
             p_bear = 0.99 if state == "bear" else 0.005
-            p_cons = 0.99 if state in ("consolidation", "stagflation") else 0.005
+            p_cons = 0.99 if state == "consolidation" else 0.005
         hmm = {
             "date":               str(hmm_row[0]),
             "state":              state,

@@ -13,6 +13,9 @@ function postRefresh() {
 function postChat(message) {
   return client.post('/chat', { message }).then(r => r.data)
 }
+function fetchChatHistory() {
+  return client.get('/chat/history').then(r => r.data)
+}
 
 function TimeAgo({ isoString }) {
   const { t } = useTranslation()
@@ -53,7 +56,19 @@ export default function Situation() {
   const [input,    setInput]      = useState('')
   const [sending,  setSending]    = useState(false)
   const [chatErr,  setChatErr]    = useState(null)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
   const bottomRef = useRef(null)
+
+  // Load chat history from DB on first mount
+  useEffect(() => {
+    if (historyLoaded) return
+    fetchChatHistory()
+      .then(data => {
+        if (data.messages?.length) setMessages(data.messages)
+        setHistoryLoaded(true)
+      })
+      .catch(() => setHistoryLoaded(true))
+  }, [historyLoaded])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

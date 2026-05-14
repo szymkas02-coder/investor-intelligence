@@ -119,6 +119,7 @@
     "p10label": "10th pct",
     "horizonNote": "Weights vary by horizon: momentum dominates at 1–3Y, CAPE at 2–10Y, base rate at 10Y+.",
     "momentumNA": "n/a at this horizon",
+    "capeNA": "n/a at this horizon",
     "disclaimer": "Ensemble of three signals: US CAPE (Asness/AQR 2012), long-run historical base rate (Dimson-Marsh-Staunton Global Returns Yearbook 2025, 1900–2024), and momentum/valuation adjustment from live market data. Real returns — inflation not included. Not financial advice."
   },
   "situation": {
