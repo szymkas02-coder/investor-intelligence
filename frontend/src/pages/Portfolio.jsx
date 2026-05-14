@@ -255,7 +255,7 @@ export default function Portfolio() {
       {/* IKE status */}
       {data && (
         <div className="card ike-card">
-          <h3>IKE {new Date().getFullYear()} Contributions</h3>
+          <h3>{t('portfolio.ikeContributions', { year: new Date().getFullYear() })}</h3>
           <div className="ike-bar-wrap">
             <div className="ike-bar" style={{ width: data.ike_limit
               ? `${Math.min(100, (data.ike_contributed / data.ike_limit) * 100).toFixed(0)}%` : '0%' }} />
@@ -263,8 +263,8 @@ export default function Portfolio() {
           <p>
             <strong>{data.ike_contributed?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) ?? 0} PLN</strong>
             {data.ike_limit && <>
-              {' '}contributed of {data.ike_limit.toLocaleString('pl-PL')} PLN limit
-              &nbsp;(<strong>{data.ike_remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN remaining</strong>)
+              {' '}{t('portfolio.ikeContributed', { limit: data.ike_limit.toLocaleString('pl-PL') })}
+              &nbsp;(<strong>{t('portfolio.ikeRemaining', { remaining: data.ike_remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) })}</strong>)
             </>}
           </p>
         </div>
@@ -273,7 +273,7 @@ export default function Portfolio() {
       {/* IKE multi-year history */}
       {ikeHistory?.years?.length > 0 && (
         <div className="card">
-          <h3>IKE Contribution History</h3>
+          <h3>{t('portfolio.ikeContributions', { year: '' })} Historia</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={ikeHistory.years} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -283,8 +283,8 @@ export default function Portfolio() {
                 v.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' PLN', name
               ]} />
               <Legend />
-              <Bar dataKey="limit" name="Annual limit" fill="#e2e8f0" radius={[3,3,0,0]} />
-              <Bar dataKey="contributed" name="Contributed" radius={[3,3,0,0]}>
+              <Bar dataKey="limit" name={t('portfolio.ikeAnnualLimit')} fill="#e2e8f0" radius={[3,3,0,0]} />
+              <Bar dataKey="contributed" name={t('portfolio.ikeContributed2')} radius={[3,3,0,0]}>
                 {ikeHistory.years.map(y => (
                   <Cell key={y.year}
                         fill={y.pct >= 100 ? '#22c55e' : y.pct >= 50 ? '#3b82f6' : '#94a3b8'} />
@@ -292,18 +292,16 @@ export default function Portfolio() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <p className="ike-history-note">
-            Green = limit reached · Blue = over 50% · Grey = under 50%
-          </p>
+          <p className="ike-history-note">{t('portfolio.ikeHistoryNote')}</p>
         </div>
       )}
 
       {/* Positions */}
       <div className="card">
         <h3>
-          Positions
+          {t('portfolio.positions')}
           {data && <span className="total-value">
-            Total: {data.total_value_pln?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) ?? '—'} PLN
+            {t('portfolio.totalValue')}: {data.total_value_pln?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) ?? '—'} PLN
           </span>}
         </h3>
         {posLoading ? <p>{t('common.loading')}</p> :
@@ -311,8 +309,8 @@ export default function Portfolio() {
         <table className="positions-table">
           <thead>
             <tr>
-              <th>Ticker</th><th>Account</th><th>Shares</th>
-              <th>Avg cost</th><th>Current</th><th>Value</th><th>Gain</th>
+              <th>Ticker</th><th>{t('portfolio.account')}</th><th>{t('portfolio.shares')}</th>
+              <th>{t('portfolio.avgCost')}</th><th>{t('portfolio.current')}</th><th>{t('portfolio.value')}</th><th>{t('portfolio.gain')}</th>
             </tr>
           </thead>
           <tbody>
@@ -336,8 +334,8 @@ export default function Portfolio() {
       {/* Transaction history */}
       <div className="card">
         <div className="tx-history-header">
-          <h3>Transaction History
-            <span className="tx-count">{transactions.length} records</span>
+          <h3>{t('portfolio.txHistory')}
+            <span className="tx-count">{t('portfolio.txCount', { count: transactions.length })}</span>
           </h3>
           <div className="tx-actions">
             {transactions.length > 0 && (
@@ -394,14 +392,14 @@ export default function Portfolio() {
         {brokerSheets && (
           <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 16, marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <strong>File has {brokerSheets.length} sheets — select one to import:</strong>
+              <strong>{t('portfolio.selectSheet', { count: brokerSheets.length })}</strong>
               <button className="btn-icon" onClick={() => { setBrokerSheets(null); setBrokerFileCache(null) }}>✕</button>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {brokerSheets.map(s => (
                 <button key={s} className="btn-ghost btn-sm" disabled={brokerParsing}
                         onClick={() => _parseBrokerSheet(brokerFileCache, s)}>
-                  {brokerParsing ? 'Parsing...' : s}
+                  {brokerParsing ? t('portfolio.parsing') : s}
                 </button>
               ))}
             </div>
@@ -412,7 +410,7 @@ export default function Portfolio() {
         {brokerPreview && (
           <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8, padding: 16, marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <strong>AI parsed {brokerPreview.preview.length} transaction(s) — review before importing</strong>
+              <strong>{t('portfolio.aiParsed', { count: brokerPreview.preview.length })}</strong>
               <button className="btn-icon" onClick={() => setBrokerPreview(null)}>✕</button>
             </div>
             {brokerPreview.parse_errors?.length > 0 && (
@@ -422,7 +420,7 @@ export default function Portfolio() {
             )}
             {/* Bulk account type setter */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Set all to:</span>
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>{t('portfolio.setAllTo')}</span>
               {['IKE', 'IKZE', 'regular'].map(at => (
                 <button key={at} className="btn-ghost btn-sm"
                         onClick={() => setBrokerPreview(p => ({
@@ -469,9 +467,9 @@ export default function Portfolio() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-primary btn-sm" onClick={handleBrokerConfirm} disabled={brokerConfirming}>
-                {brokerConfirming ? 'Importing...' : `Confirm import (${brokerPreview.preview.length} rows)`}
+                {brokerConfirming ? t('portfolio.importing') : t('portfolio.confirmImport', { count: brokerPreview.preview.length })}
               </button>
-              <button className="btn-ghost btn-sm" onClick={() => setBrokerPreview(null)}>Cancel</button>
+              <button className="btn-ghost btn-sm" onClick={() => setBrokerPreview(null)}>{t('portfolio.cancel')}</button>
             </div>
           </div>
         )}
@@ -479,55 +477,56 @@ export default function Portfolio() {
         {/* Filters */}
         <div className="tx-filters">
           <select value={filters.type} onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}>
-            <option value="">All types</option>
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
-            <option value="dividend">Dividend</option>
+            <option value="">{t('portfolio.allTypes')}</option>
+            <option value="buy">{t('portfolio.buy')}</option>
+            <option value="sell">{t('portfolio.sell')}</option>
+            <option value="dividend">{t('portfolio.dividend')}</option>
+            <option value="deposit">{t('portfolio.deposit')}</option>
           </select>
           <select value={filters.ticker} onChange={e => setFilters(f => ({ ...f, ticker: e.target.value }))}>
-            <option value="">All tickers</option>
-            {[...new Set(transactions.map(t => t.ticker))].sort().map(t =>
-              <option key={t} value={t}>{t}</option>
+            <option value="">{t('portfolio.allTickers')}</option>
+            {[...new Set(transactions.map(tx => tx.ticker).filter(Boolean))].sort().map(tk =>
+              <option key={tk} value={tk}>{tk}</option>
             )}
           </select>
           <select value={filters.year} onChange={e => setFilters(f => ({ ...f, year: e.target.value }))}>
-            <option value="">All years</option>
+            <option value="">{t('portfolio.allYears')}</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           {(filters.type || filters.ticker || filters.year) && (
             <button className="btn-ghost btn-sm" onClick={() => setFilters({ ticker: '', type: '', year: '' })}>
-              Clear filters
+              {t('portfolio.clearFilters')}
             </button>
           )}
         </div>
 
-        {txLoading ? <p>Loading transactions...</p> :
-         !transactions.length ? <p className="empty">No transactions yet.</p> : (
+        {txLoading ? <p>{t('common.loading')}</p> :
+         !transactions.length ? <p className="empty">{t('portfolio.noTx')}</p> : (
           <table className="tx-table">
             <thead>
               <tr>
-                <th>Date</th><th>Ticker</th><th>Type</th><th>Shares</th>
-                <th>Price</th><th>Total</th><th>Account</th><th>Notes</th><th></th>
+                <th>{t('portfolio.date')}</th><th>Ticker</th><th>{t('portfolio.type')}</th><th>{t('portfolio.shares')}</th>
+                <th>{t('portfolio.pricePln')}</th><th>{t('portfolio.totalPln')}</th><th>{t('portfolio.account')}</th><th>{t('portfolio.notes')}</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {transactions.map(t => (
-                <tr key={t.transaction_id} className={editId === t.transaction_id ? 'tx-row-editing' : ''}>
-                  <td>{t.date}</td>
-                  <td><strong>{t.ticker}</strong></td>
+              {transactions.map(tx => (
+                <tr key={tx.transaction_id} className={editId === tx.transaction_id ? 'tx-row-editing' : ''}>
+                  <td>{tx.date}</td>
+                  <td><strong>{tx.ticker ?? '—'}</strong></td>
                   <td>
-                    <span className="tx-type-badge" style={{ background: TYPE_COLOR[t.type] }}>
-                      {TYPE_LABEL[t.type]}
+                    <span className="tx-type-badge" style={{ background: TYPE_COLOR[tx.type] ?? '#6b7280' }}>
+                      {tx.type === 'deposit' ? t('portfolio.deposit') : tx.type === 'buy' ? t('portfolio.buy') : tx.type === 'sell' ? t('portfolio.sell') : t('portfolio.dividend')}
                     </span>
                   </td>
-                  <td>{parseFloat(t.shares).toFixed(4)}</td>
-                  <td>{parseFloat(t.price_pln).toFixed(2)} PLN</td>
-                  <td><strong>{(t.shares * t.price_pln).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN</strong></td>
-                  <td><span className="account-badge">{t.account_type}</span></td>
-                  <td className="tx-notes">{t.notes ?? ''}</td>
+                  <td>{tx.shares != null ? parseFloat(tx.shares).toFixed(4) : '—'}</td>
+                  <td>{tx.price_pln != null ? parseFloat(tx.price_pln).toFixed(2) + ' PLN' : '—'}</td>
+                  <td><strong>{tx.shares != null && tx.price_pln != null ? (tx.shares * tx.price_pln).toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' PLN' : tx.price_pln != null ? parseFloat(tx.price_pln).toLocaleString('pl-PL', { maximumFractionDigits: 0 }) + ' PLN' : '—'}</strong></td>
+                  <td><span className="account-badge">{tx.account_type}</span></td>
+                  <td className="tx-notes">{tx.notes ?? ''}</td>
                   <td className="tx-row-btns">
-                    <button className="btn-icon" title="Edit" onClick={() => startEdit(t)}>✎</button>
-                    <button className="btn-icon btn-icon-del" title="Delete" onClick={() => setConfirmDel(t)}>✕</button>
+                    <button className="btn-icon" title={t('portfolio.edit')} onClick={() => startEdit(tx)}>✎</button>
+                    <button className="btn-icon btn-icon-del" title={t('portfolio.delete')} onClick={() => setConfirmDel(tx)}>✕</button>
                   </td>
                 </tr>
               ))}
@@ -535,15 +534,14 @@ export default function Portfolio() {
           </table>
         )}
 
-        {/* Delete ALL confirmation — two steps */}
         {confirmDelAll === 1 && (
           <div className="confirm-overlay">
             <div className="confirm-box">
-              <p><strong>Delete all {transactions.length} transactions?</strong></p>
-              <p className="confirm-warn">This will also clear all positions and IKE contributions. This cannot be undone.</p>
+              <p><strong>{t('portfolio.confirmDeleteAll1', { count: transactions.length })}</strong></p>
+              <p className="confirm-warn">{t('portfolio.confirmDeleteAll1Warn')}</p>
               <div className="confirm-btns">
-                <button className="btn-danger" onClick={() => setConfirmDelAll(2)}>Yes, delete all</button>
-                <button className="btn-ghost" onClick={() => setConfirmDelAll(0)}>Cancel</button>
+                <button className="btn-danger" onClick={() => setConfirmDelAll(2)}>{t('portfolio.yesDeleteAll')}</button>
+                <button className="btn-ghost" onClick={() => setConfirmDelAll(0)}>{t('portfolio.cancel')}</button>
               </div>
             </div>
           </div>
@@ -551,31 +549,30 @@ export default function Portfolio() {
         {confirmDelAll === 2 && (
           <div className="confirm-overlay">
             <div className="confirm-box">
-              <p><strong>Are you absolutely sure?</strong></p>
-              <p className="confirm-warn">All {transactions.length} transactions, positions, and IKE contribution history will be permanently deleted.</p>
+              <p><strong>{t('portfolio.confirmDeleteAll2')}</strong></p>
+              <p className="confirm-warn">{t('portfolio.confirmDeleteAll2Warn', { count: transactions.length })}</p>
               <div className="confirm-btns">
                 <button className="btn-danger" onClick={() => delAllMutation.mutate()}
                         disabled={delAllMutation.isPending}>
-                  {delAllMutation.isPending ? 'Deleting...' : 'Yes, delete everything'}
+                  {delAllMutation.isPending ? t('portfolio.deleting') : t('portfolio.yesDeleteEverything')}
                 </button>
-                <button className="btn-ghost" onClick={() => setConfirmDelAll(0)}>Cancel</button>
+                <button className="btn-ghost" onClick={() => setConfirmDelAll(0)}>{t('portfolio.cancel')}</button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Delete single confirmation */}
         {confirmDel && (
           <div className="confirm-overlay">
             <div className="confirm-box">
-              <p>Delete <strong>{confirmDel.type}</strong> of <strong>{confirmDel.shares} {confirmDel.ticker}</strong> on {confirmDel.date}?</p>
-              <p className="confirm-warn">This will reverse the position calculation.</p>
+              <p>{t('portfolio.confirmDeleteTx', { type: confirmDel.type, shares: confirmDel.shares, ticker: confirmDel.ticker ?? '', date: confirmDel.date })}</p>
+              <p className="confirm-warn">{t('portfolio.confirmDeleteWarn')}</p>
               <div className="confirm-btns">
                 <button className="btn-danger" onClick={() => delMutation.mutate(confirmDel.transaction_id)}
                         disabled={delMutation.isPending}>
-                  {delMutation.isPending ? 'Deleting...' : 'Delete'}
+                  {delMutation.isPending ? t('portfolio.deleting') : t('portfolio.delete')}
                 </button>
-                <button className="btn-ghost" onClick={() => setConfirmDel(null)}>Cancel</button>
+                <button className="btn-ghost" onClick={() => setConfirmDel(null)}>{t('portfolio.cancel')}</button>
               </div>
             </div>
           </div>
@@ -585,7 +582,7 @@ export default function Portfolio() {
       {/* Add / Edit form */}
       {showForm && (
         <div className="card">
-          <h3>{editId ? t('portfolio.edit') : t('portfolio.addTransaction')}</h3>
+          <h3>{editId ? t('portfolio.editTransaction') : t('portfolio.recordTransaction')}</h3>
           <form className="tx-form" onSubmit={handleSubmit}>
             <div>
               <label>{t('portfolio.date')}</label>
@@ -666,7 +663,7 @@ export default function Portfolio() {
             <div className="tx-form-btns">
               <button type="submit" className="btn-primary"
                       disabled={addMutation.isPending || editMutation.isPending}>
-                {(addMutation.isPending || editMutation.isPending) ? t('common.loading') : editId ? t('portfolio.save') : t('portfolio.save')}
+                {(addMutation.isPending || editMutation.isPending) ? t('portfolio.saving') : editId ? t('portfolio.saveChanges') : t('portfolio.save')}
               </button>
               {editId && <button type="button" className="btn-ghost" onClick={cancelEdit}>{t('portfolio.cancel')}</button>}
             </div>
