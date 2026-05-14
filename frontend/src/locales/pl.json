@@ -80,7 +80,11 @@
     "recessionProb": "Prawdop. recesji",
     "p10": "10. percentyl",
     "median": "Mediana",
-    "p90": "90. percentyl"
+    "p90": "90. percentyl",
+    "noteLgbm": "Etykiety regułowe (znana cyrkularność — zachowane jako punkt odniesienia)",
+    "noteHmm": "Model nienadzorowany, trenowany na danych Shillera 1871–2026, bez cyrkularności etykiet",
+    "noteRecession": "Dane rzeczywiste: FRED USREC (NBER), nie wynikają z naszych cech",
+    "noteCape": "Campbell-Shiller: CAPE wyjaśnia ~40% wariancji realnego zwrotu 10-letniego"
   },
   "decision": {
     "title": "Miesięczna Rekomendacja",
@@ -201,6 +205,15 @@
     "aiParsed": "AI sparsowało {{count}} transakcję/transakcje — sprawdź przed importem",
     "confirmImport": "Potwierdź import ({{count}} wierszy)",
     "setAllTo": "Ustaw wszystkie na:"
+  },
+  "components": {
+    "annualised": "w skali roku",
+    "noFxForecast": "Brak prognozy FX.",
+    "fxForecastDesc": "Prognoza mediany z pasmem niepewności 10.–90. percentyl. Bieżący:",
+    "fxForecastHorizon": "Prognoza {{days}}d",
+    "fxP10": "10. percentyl (PLN umacnia się)",
+    "fxP90": "90. percentyl (PLN osłabia się)",
+    "fxDownsideUpside": "spadek / wzrost vs dziś"
   },
   "history": {
     "title": "Dane Historyczne",

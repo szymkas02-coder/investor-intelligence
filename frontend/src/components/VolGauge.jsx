@@ -1,4 +1,5 @@
-// Simple text gauge for volatility forecast with confidence band
+import { useTranslation } from 'react-i18next'
+
 function volColor(v) {
   if (v > 0.30) return '#ef4444'
   if (v > 0.20) return '#f97316'
@@ -6,6 +7,7 @@ function volColor(v) {
 }
 
 export default function VolGauge({ label, forecast, lower, upper }) {
+  const { t } = useTranslation()
   const color = volColor(forecast)
   return (
     <div className="vol-gauge">
@@ -16,7 +18,7 @@ export default function VolGauge({ label, forecast, lower, upper }) {
       <div className="vol-band">
         [{(lower * 100).toFixed(1)}% – {(upper * 100).toFixed(1)}%]
       </div>
-      <div className="vol-desc">annualised</div>
+      <div className="vol-desc">{t('components.annualised')}</div>
     </div>
   )
 }

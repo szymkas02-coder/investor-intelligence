@@ -1,4 +1,5 @@
-// Stacked horizontal bar showing regime probabilities
+import { useTranslation } from 'react-i18next'
+
 const COLORS = {
   risk_on:     '#22c55e',
   stagflation: '#f97316',
@@ -7,11 +8,13 @@ const COLORS = {
 }
 
 export default function RegimeBar({ probRiskOn, probRiskOff, probStagflation, probDeflation }) {
+  const { t } = useTranslation()
+
   const segments = [
-    { label: 'Risk On',     value: probRiskOn,     key: 'risk_on' },
-    { label: 'Stagflation', value: probStagflation, key: 'stagflation' },
-    { label: 'Risk Off',    value: probRiskOff,     key: 'risk_off' },
-    { label: 'Deflation',   value: probDeflation,   key: 'deflation' },
+    { label: t('signals.riskOn'),     value: probRiskOn,     key: 'risk_on' },
+    { label: t('signals.stagflation'), value: probStagflation, key: 'stagflation' },
+    { label: t('signals.riskOff'),    value: probRiskOff,    key: 'risk_off' },
+    { label: t('signals.deflation'),  value: probDeflation,  key: 'deflation' },
   ]
 
   return (

@@ -35,7 +35,7 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
             "prob_stagflation": round(lgbm_row[4], 4),
             "prob_deflation":   round(lgbm_row[5], 4),
             "model_version":    lgbm_row[6],
-            "note":             "Rule-based labels (known circular — retained as baseline)",
+            "note":             "signals.noteLgbm",
         }
 
     # 2. HMM regime
@@ -66,7 +66,7 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
             "prob_bear":          round(p_bear, 4),
             "prob_consolidation": round(p_cons, 4),
             "model_version":      hmm_row[5],
-            "note":               "Unsupervised, trained on Shiller 1871-2026, no label circularity",
+            "note":               "signals.noteHmm",
         }
 
     # 3. Recession probability
@@ -83,7 +83,7 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
             "recession_prob": round(rec_row[1] or 0, 4),
             "recession_pred": bool(rec_row[2]),
             "model_version":  rec_row[3],
-            "note":           "Ground truth: FRED USREC (NBER), not derived from our features",
+            "note":           "signals.noteRecession",
         }
 
     # 4. CAPE 10Y signal (latest available)
@@ -102,7 +102,7 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
             "ret_q50":       round(cape_row[3] or 0, 4),
             "ret_q90":       round(cape_row[4] or 0, 4),
             "model_version": cape_row[5],
-            "note":          "Campbell-Shiller: CAPE explains ~40% of 10Y real return variance",
+            "note":          "signals.noteCape",
         }
 
     # 5. Signal agreement summary

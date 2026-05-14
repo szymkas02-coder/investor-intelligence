@@ -75,7 +75,7 @@ export default function SignalPanel() {
       <div className="signal-cards">
         {lgbm && (
           <SignalCard title={t('signals.lgbm')} subtitle={lgbm.date}
-            color={LGBM_COLOR[lgbm.regime] ?? '#6b7280'} note={lgbm.note}>
+            color={LGBM_COLOR[lgbm.regime] ?? '#6b7280'} note={lgbm.note ? t(lgbm.note, lgbm.note) : null}>
             <div className="signal-main-label" style={{ color: LGBM_COLOR[lgbm.regime] }}>
               {lgbm.regime.replace('_', ' ').toUpperCase()}
             </div>
@@ -88,7 +88,7 @@ export default function SignalPanel() {
 
         {hmm && (
           <SignalCard title={t('signals.hmm')} subtitle={hmm.date}
-            color={HMM_COLOR[hmm.state] ?? '#6b7280'} note={hmm.note}>
+            color={HMM_COLOR[hmm.state] ?? '#6b7280'} note={hmm.note ? t(hmm.note, hmm.note) : null}>
             <div className="signal-main-label" style={{ color: HMM_COLOR[hmm.state] }}>
               {hmm.state.toUpperCase()}
             </div>
@@ -101,7 +101,7 @@ export default function SignalPanel() {
         {recession && (
           <SignalCard title={t('signals.recession')} subtitle={recession.date}
             color={recession.recession_prob > 0.5 ? '#ef4444' : recession.recession_prob > 0.25 ? '#f97316' : '#22c55e'}
-            note={recession.note}>
+            note={recession.note ? t(recession.note, recession.note) : null}>
             <div className="signal-main-label"
                  style={{ color: recession.recession_prob > 0.5 ? '#ef4444' : recession.recession_prob > 0.25 ? '#f97316' : '#22c55e' }}>
               {(recession.recession_prob * 100).toFixed(1)}%
@@ -114,7 +114,7 @@ export default function SignalPanel() {
         {cape && (
           <SignalCard title={t('signals.cape')} subtitle={`CAPE = ${cape.cape} · ${cape.date}`}
             color={cape.ret_q50 < 0.02 ? '#ef4444' : cape.ret_q50 < 0.05 ? '#f97316' : '#22c55e'}
-            note={cape.note}>
+            note={cape.note ? t(cape.note, cape.note) : null}>
             <div className="signal-main-label"
                  style={{ color: cape.ret_q50 < 0.02 ? '#ef4444' : cape.ret_q50 < 0.05 ? '#f97316' : '#22c55e' }}>
               {(cape.ret_q50 * 100).toFixed(1)}% real

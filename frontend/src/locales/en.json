@@ -80,7 +80,11 @@
     "recessionProb": "Recession prob",
     "p10": "10th pct",
     "median": "Median",
-    "p90": "90th pct"
+    "p90": "90th pct",
+    "noteLgbm": "Rule-based labels (known circular — retained as baseline)",
+    "noteHmm": "Unsupervised, trained on Shiller 1871–2026, no label circularity",
+    "noteRecession": "Ground truth: FRED USREC (NBER), not derived from our features",
+    "noteCape": "Campbell-Shiller: CAPE explains ~40% of 10Y real return variance"
   },
   "decision": {
     "title": "Monthly Recommendation",
@@ -201,6 +205,15 @@
     "aiParsed": "AI parsed {{count}} transaction(s) — review before importing",
     "confirmImport": "Confirm import ({{count}} rows)",
     "setAllTo": "Set all to:"
+  },
+  "components": {
+    "annualised": "annualised",
+    "noFxForecast": "No FX forecast available.",
+    "fxForecastDesc": "Median forecast with 10th–90th percentile uncertainty band. Current:",
+    "fxForecastHorizon": "{{days}}d forecast",
+    "fxP10": "10th pct (PLN strengthens)",
+    "fxP90": "90th pct (PLN weakens)",
+    "fxDownsideUpside": "downside / upside vs today"
   },
   "history": {
     "title": "Historical Data",
