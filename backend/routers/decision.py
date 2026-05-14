@@ -22,10 +22,13 @@ Decision logic:
     (PLN expected to weaken significantly — buying USD-denominated ETF costs more)
   - otherwise                   → INVEST (lump sum is fine)
 
-Projection:
-  Uses CAPE-implied return distribution from Asness (2012) decile table.
-  Runs a Monte Carlo with 10,000 paths over the specified horizon.
-  Returns median, 10th, and 90th percentile terminal values.
+Projection — horizon-dependent ensemble:
+  Different signals dominate at different horizons (evidence-based):
+  - Momentum (1–3Y):  Jegadeesh-Titman (1993) — 3-12M momentum predicts 1-3Y returns
+  - CAPE (2–10Y):     Campbell-Shiller (1988, 1998) — CAPE explains ~40% of 10Y variance
+  - Base rate (5Y+):  DMS Yearbook 2025 — 5.5% real for globally diversified ACWI
+  Weights are continuous functions of horizon, not discrete buckets.
+  Each year of the Monte Carlo uses the weight appropriate for that horizon.
 """
 
 import math
@@ -75,13 +78,13 @@ class ProjectionBand(BaseModel):
 
 class EnsembleComponents(BaseModel):
     cape_decile:      int
-    cape_return:      float
-    base_rate_return: float
-    momentum_return:  float
-    momentum_adj:     float
-    ensemble_median:  float
+    cape_return:      float       # CAPE-implied annualised real return (Shiller E/P - RF)
+    base_rate_return: float       # DMS long-run base rate (rate-adjusted)
+    momentum_return:  float       # momentum-adjusted return estimate
+    momentum_adj:     float       # raw momentum adjustment before bounding
+    ensemble_median:  float       # horizon-weighted blend (at specified horizon)
     ensemble_std:     float
-    weights:          dict
+    weights:          dict        # weights at specified horizon {cape, base_rate, momentum}
 
 
 class ProjectionResponse(BaseModel):
@@ -131,14 +134,6 @@ CAPE_DECILE_BREAKS = [9.6, 11.6, 13.6, 15.6, 17.3, 19.4, 21.1, 25.1]
 BASE_RATE_MEDIAN = 0.055
 BASE_RATE_STD    = 0.150
 
-# ---------------------------------------------------------------------------
-# Ensemble weights: CAPE signal / base rate / momentum-valuation
-# ---------------------------------------------------------------------------
-W_CAPE     = 0.30
-W_BASE     = 0.50
-W_MOMENTUM = 0.20
-
-
 def cape_to_decile(cape: float) -> int:
     for i, threshold in enumerate(CAPE_DECILE_BREAKS, start=1):
         if cape < threshold:
@@ -146,72 +141,192 @@ def cape_to_decile(cape: float) -> int:
     return 10
 
 
-def _ensemble_return(
-    cape: float,
-    acwi_ret_63d: Optional[float],
-    earnings_yield: Optional[float],
-) -> tuple[float, float, dict]:
+def _horizon_weights(t: float) -> tuple[float, float, float]:
     """
-    Compute ensemble median real return and std for Monte Carlo projection.
+    Compute (w_momentum, w_cape, w_base_rate) for horizon t (years).
 
-    Returns (median, std, components) where components is a dict for the UI.
+    Evidence basis:
+    - Momentum: Jegadeesh-Titman (1993), Fama-French (1996) — significant
+      at 3–12 months, fades by 3 years, reverses at 5Y+. We use 63d ACWI
+      return as proxy (strongest available signal in our features).
+      Weight = max(0, 1 - t/3) * 0.40 — full 40% at t=0, zero at t≥3Y.
+      Capped at 40% to prevent a single hot/cold market from dominating.
 
-    Component 1 — CAPE signal (US, Asness 2012):
-      Uses the Asness decile table for the US market. Not geographically
-      adjusted (ex-US CAPE omitted — insufficient data quality in pipeline).
+    - CAPE: Campbell-Shiller (1988, 1998, 2001) — CAPE explains ~5% of
+      1Y return variance, ~40% of 10Y return variance. Bell curve peaked
+      at t=5Y with std=3Y so it contributes meaningfully from ~2Y to ~12Y.
+      Uses Gaussian bell: w = 0.55 * exp(-0.5 * ((t-5)/3)^2)
 
-    Component 2 — Long-run historical base rate (DMS 2025):
-      5.5% real for a globally diversified ACWI portfolio. Anchors the
-      estimate against short-term valuation noise.
+    - Base rate: DMS Yearbook 2025 — law of large numbers means the
+      long-run equity premium dominates at very long horizons. Gets
+      whatever weight remains: w_base = 1 - w_momentum - w_cape.
 
-    Component 3 — Momentum/valuation adjustment:
-      Uses ACWI 63d return and earnings yield from daily_features.
-      If earnings yield is high (cheap) and momentum positive → nudge up.
-      If earnings yield is low (expensive) and momentum negative → nudge down.
-      Bounded to ±1.5% to prevent dominating the ensemble.
+    All weights sum to 1.0 by construction.
+    """
+    w_mom  = max(0.0, 1.0 - t / 3.0) * 0.40
+    w_cape = 0.55 * math.exp(-0.5 * ((t - 5.0) / 3.0) ** 2)
+    # Ensure cape doesn't exceed what's left after momentum
+    w_cape = min(w_cape, 1.0 - w_mom)
+    w_base = max(0.0, 1.0 - w_mom - w_cape)
+    # Renormalise to exactly 1.0
+    total  = w_mom + w_cape + w_base
+    return w_mom / total, w_cape / total, w_base / total
+
+
+def _cape_shiller_return(
+    cape: float,
+    fed_funds_rate: Optional[float],
+    cpi_us_yoy: Optional[float],
+) -> tuple[float, float, int]:
+    """
+    CAPE-implied annualised real return using Shiller's E/P - RF formula.
+
+    E/P = 1/CAPE (earnings yield)
+    Real RF = Fed funds rate - CPI (approximate real risk-free rate)
+    Expected real equity return ≈ E/P - Real_RF + equity risk premium
+    ERP: DMS global average ~3.5% (Dimson-Marsh-Staunton 2025)
+
+    Also returns the decile for display purposes.
+    Fallback to Asness decile table if inputs are missing.
+
+    Bounded to [0%, 15%] — prevents extreme readings from dominating.
     """
     decile = cape_to_decile(cape)
-    cape_median, cape_std = CAPE_DECILE_RETURNS[decile]
+    cape_table_median, cape_std = CAPE_DECILE_RETURNS[decile]
 
-    # Momentum/valuation component
+    if cape > 0 and fed_funds_rate is not None and cpi_us_yoy is not None:
+        earnings_yield = 1.0 / cape
+        real_rf        = (fed_funds_rate / 100.0) - (cpi_us_yoy / 100.0)
+        erp            = 0.035   # DMS global equity risk premium (2025)
+        cape_return    = earnings_yield - max(0.0, real_rf) + erp
+        # Blend 60% Shiller formula / 40% Asness table for robustness
+        cape_return = 0.60 * cape_return + 0.40 * cape_table_median
+        cape_return = max(0.00, min(0.15, cape_return))
+    else:
+        cape_return = cape_table_median
+
+    return cape_return, cape_std, decile
+
+
+def _momentum_return(
+    acwi_ret_63d: Optional[float],
+    cape: float,
+) -> tuple[float, float]:
+    """
+    Momentum-based short-term return estimate.
+
+    Uses ACWI 63d (≈3M) return as momentum signal — the onset of the
+    Jegadeesh-Titman momentum effect (strongest 3-12M, fades by 3Y).
+
+    CAPE dampening: when CAPE > 30 (expensive), momentum signal is
+    dampened by 50% — overvalued markets with momentum are more dangerous
+    (2000 tech peak had strong momentum AND extreme CAPE).
+
+    Returns (momentum_return, momentum_adj) where:
+      momentum_return = BASE_RATE_MEDIAN + momentum_adj
+    """
     momentum_adj = 0.0
     if acwi_ret_63d is not None:
-        momentum_adj += acwi_ret_63d * 0.5          # partial momentum signal
-    if earnings_yield is not None:
-        # earnings yield - 5% = excess over long-run base; scale to return adj
-        momentum_adj += (earnings_yield - 0.05) * 0.3
-    momentum_adj = max(-0.015, min(0.015, momentum_adj))  # cap ±1.5%
-    momentum_median = BASE_RATE_MEDIAN + momentum_adj
+        # Annualise roughly: 63d return → ×4 is too aggressive, use ×1.5
+        # (momentum partially mean-reverts; we want the persistent component)
+        raw_signal = acwi_ret_63d * 1.5
+        # CAPE dampening: reduce signal linearly from 100% at CAPE=20 to 50% at CAPE=35+
+        cape_damp   = max(0.5, 1.0 - max(0.0, cape - 20.0) / 30.0)
+        momentum_adj = raw_signal * cape_damp * 0.25   # scale down: momentum is noisy
+    momentum_adj = max(-0.020, min(0.020, momentum_adj))   # cap ±2%
+    return BASE_RATE_MEDIAN + momentum_adj, momentum_adj
 
-    # Ensemble median (weighted average)
-    ensemble_median = (
-        W_CAPE     * cape_median     +
-        W_BASE     * BASE_RATE_MEDIAN +
-        W_MOMENTUM * momentum_median
+
+def _base_rate_return(fed_funds_rate: Optional[float], cpi_us_yoy: Optional[float]) -> float:
+    """
+    Long-run base rate, adjusted for current interest rate environment.
+
+    DMS global ACWI base: 5.5% real p.a. (2025 Yearbook, 1900-2024).
+    Adjustment: when real rates are very high (>2%), equity premium compresses.
+    When real rates are negative, equity is relatively more attractive.
+    Effect is modest (±0.5% max) — base rate is the most stable component.
+    """
+    if fed_funds_rate is not None and cpi_us_yoy is not None:
+        real_rate = (fed_funds_rate / 100.0) - (cpi_us_yoy / 100.0)
+        # Each 1% of real rate above 0% compresses equity return by ~0.1%
+        # (equity risk premium shrinks as bonds become more competitive)
+        rate_adj  = -0.10 * max(0.0, real_rate)
+        rate_adj  = max(-0.005, min(0.005, rate_adj))   # cap ±0.5%
+        return BASE_RATE_MEDIAN + rate_adj
+    return BASE_RATE_MEDIAN
+
+
+def _ensemble_return_at_horizon(
+    cape:           float,
+    acwi_ret_63d:   Optional[float],
+    fed_funds_rate: Optional[float],
+    cpi_us_yoy:     Optional[float],
+    horizon_years:  float,
+) -> tuple[float, float]:
+    """
+    Return (median, std) for the ensemble at a specific horizon.
+    Used year-by-year in the Monte Carlo so each future year uses
+    the weight appropriate for its remaining distance from today.
+    """
+    w_mom, w_cape, w_base = _horizon_weights(horizon_years)
+
+    cape_ret, cape_std, _   = _cape_shiller_return(cape, fed_funds_rate, cpi_us_yoy)
+    mom_ret,  _             = _momentum_return(acwi_ret_63d, cape)
+    base_ret                = _base_rate_return(fed_funds_rate, cpi_us_yoy)
+
+    median = w_mom * mom_ret + w_cape * cape_ret + w_base * base_ret
+
+    # Uncertainty: weighted quadrature + dispersion penalty
+    std = math.sqrt(
+        w_mom**2  * BASE_RATE_STD**2 +
+        w_cape**2 * cape_std**2       +
+        w_base**2 * BASE_RATE_STD**2
     )
+    spread = max(abs(cape_ret - base_ret), abs(mom_ret - base_ret))
+    std = std + 0.25 * spread
 
-    # Ensemble std: weighted quadrature combination
-    ensemble_std = math.sqrt(
-        W_CAPE**2     * cape_std**2   +
-        W_BASE**2     * BASE_RATE_STD**2 +
-        W_MOMENTUM**2 * BASE_RATE_STD**2
+    return median, std
+
+
+def _ensemble_summary(
+    cape:           float,
+    acwi_ret_63d:   Optional[float],
+    fed_funds_rate: Optional[float],
+    cpi_us_yoy:     Optional[float],
+    horizon_years:  float,
+) -> dict:
+    """
+    Build the EnsembleComponents dict for the UI display.
+    Uses the weights at the specified horizon for the summary card.
+    """
+    w_mom, w_cape, w_base  = _horizon_weights(horizon_years)
+    cape_ret, cape_std, decile = _cape_shiller_return(cape, fed_funds_rate, cpi_us_yoy)
+    mom_ret, mom_adj           = _momentum_return(acwi_ret_63d, cape)
+    base_ret                   = _base_rate_return(fed_funds_rate, cpi_us_yoy)
+
+    median = w_mom * mom_ret + w_cape * cape_ret + w_base * base_ret
+    std    = math.sqrt(
+        w_mom**2  * BASE_RATE_STD**2 +
+        w_cape**2 * cape_std**2       +
+        w_base**2 * BASE_RATE_STD**2
     )
-    # Scale up slightly if signals disagree (dispersion penalty)
-    signal_spread = max(abs(cape_median - BASE_RATE_MEDIAN),
-                        abs(momentum_median - BASE_RATE_MEDIAN))
-    ensemble_std = ensemble_std + 0.3 * signal_spread
+    spread = max(abs(cape_ret - base_ret), abs(mom_ret - base_ret))
+    std    = std + 0.25 * spread
 
-    components = {
+    return {
         "cape_decile":        decile,
-        "cape_return":        round(cape_median, 4),
-        "base_rate_return":   round(BASE_RATE_MEDIAN, 4),
-        "momentum_return":    round(momentum_median, 4),
-        "momentum_adj":       round(momentum_adj, 4),
-        "ensemble_median":    round(ensemble_median, 4),
-        "ensemble_std":       round(ensemble_std, 4),
-        "weights":            {"cape": W_CAPE, "base_rate": W_BASE, "momentum": W_MOMENTUM},
+        "cape_return":        round(cape_ret,   4),
+        "base_rate_return":   round(base_ret,   4),
+        "momentum_return":    round(mom_ret,    4),
+        "momentum_adj":       round(mom_adj,    4),
+        "ensemble_median":    round(median,     4),
+        "ensemble_std":       round(std,        4),
+        "weights":            {
+            "cape":       round(w_cape, 3),
+            "base_rate":  round(w_base, 3),
+            "momentum":   round(w_mom,  3),
+        },
     }
-    return ensemble_median, ensemble_std, components
 
 
 # ---------------------------------------------------------------------------
@@ -454,44 +569,57 @@ def get_projection(
         else:
             current_value_pln += shares * price_native * usdpln
 
-    # Inputs for ensemble: CAPE, ACWI 63d return, S&P earnings yield
+    # Inputs for ensemble: CAPE, ACWI 63d return, macro rates
     inputs_row = db.execute("""
-        SELECT sp500_pe_ratio, acwi_ret_63d, sp500_earnings_yield
+        SELECT sp500_pe_ratio, acwi_ret_63d, fed_funds_rate, cpi_us_yoy
         FROM daily_features
         WHERE sp500_pe_ratio IS NOT NULL
         ORDER BY date DESC
         LIMIT 1
     """).fetchone()
-    cape            = float(inputs_row[0]) if inputs_row and inputs_row[0] else 30.0
-    acwi_ret_63d    = float(inputs_row[1]) if inputs_row and inputs_row[1] else None
-    earnings_yield  = float(inputs_row[2]) if inputs_row and inputs_row[2] else None
+    # Use Shiller CAPE from cape_forecasts if available (more accurate than P/E ratio)
+    cape_row = db.execute("""
+        SELECT cape FROM cape_forecasts ORDER BY date DESC LIMIT 1
+    """).fetchone()
 
-    median_ret, ret_std, components = _ensemble_return(cape, acwi_ret_63d, earnings_yield)
+    cape           = float(cape_row[0])      if cape_row    and cape_row[0]    else (float(inputs_row[0]) if inputs_row and inputs_row[0] else 30.0)
+    acwi_ret_63d   = float(inputs_row[1])    if inputs_row  and inputs_row[1]  else None
+    fed_funds_rate = float(inputs_row[2])    if inputs_row  and inputs_row[2]  else None
+    cpi_us_yoy     = float(inputs_row[3])    if inputs_row  and inputs_row[3]  else None
 
-    # Monte Carlo: monthly compounding with normally distributed shocks
+    # Summary components at the specified horizon (for UI display card)
+    components = _ensemble_summary(cape, acwi_ret_63d, fed_funds_rate, cpi_us_yoy, float(years))
+
+    # Monte Carlo: each year uses horizon-appropriate weights.
+    # Year 1 is momentum-heavy; year 10 is CAPE-heavy; year 20+ is base-rate-heavy.
     rng = np.random.default_rng(42)
-    mu_monthly    = median_ret / 12
-    sigma_monthly = ret_std / math.sqrt(12)
-
-    monthly_returns = rng.normal(
-        loc   = mu_monthly,
-        scale = sigma_monthly,
-        size  = (n_paths, years * 12),
-    )
-
     portfolio = np.full(n_paths, current_value_pln)
     bands: list[ProjectionBand] = []
 
-    for month in range(years * 12):
-        portfolio = portfolio * (1 + monthly_returns[:, month]) + monthly_pln
-        if (month + 1) % 12 == 0:
-            yr = (month + 1) // 12
-            bands.append(ProjectionBand(
-                year       = yr,
-                p10_pln    = float(np.percentile(portfolio, 10)),
-                median_pln = float(np.percentile(portfolio, 50)),
-                p90_pln    = float(np.percentile(portfolio, 90)),
-            ))
+    for yr in range(1, years + 1):
+        # Remaining horizon at the start of this year = (years - yr + 1)
+        # We use the midpoint of the year for weight calculation
+        remaining = float(years - yr + 0.5)
+        mu_annual, sigma_annual = _ensemble_return_at_horizon(
+            cape, acwi_ret_63d, fed_funds_rate, cpi_us_yoy, remaining
+        )
+        mu_monthly    = mu_annual / 12
+        sigma_monthly = sigma_annual / math.sqrt(12)
+
+        monthly_returns = rng.normal(
+            loc   = mu_monthly,
+            scale = sigma_monthly,
+            size  = (n_paths, 12),
+        )
+        for m in range(12):
+            portfolio = portfolio * (1 + monthly_returns[:, m]) + monthly_pln
+
+        bands.append(ProjectionBand(
+            year       = yr,
+            p10_pln    = float(np.percentile(portfolio, 10)),
+            median_pln = float(np.percentile(portfolio, 50)),
+            p90_pln    = float(np.percentile(portfolio, 90)),
+        ))
 
     return ProjectionResponse(
         as_of             = date.today(),
