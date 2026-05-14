@@ -31,10 +31,9 @@ COPY processing/ ./processing/
 COPY utils/     ./utils/
 COPY shiller.csv ./shiller.csv
 
-# Download ML model artifacts from GCS at build time
-RUN pip install --no-cache-dir google-cloud-storage==2.18.2
-COPY scripts/download_models.py ./scripts/download_models.py
-RUN mkdir -p ./models && python scripts/download_models.py
+# Models are downloaded into build context by Cloud Build (cloudbuild.yaml)
+RUN mkdir -p ./models
+COPY models/ ./models/
 
 # Copy built React app into a location FastAPI will serve as static files
 COPY --from=frontend-build /frontend/dist ./frontend/dist

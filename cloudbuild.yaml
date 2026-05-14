@@ -24,6 +24,15 @@ substitutions:
   _SQL_INSTANCE: free-trial-first-project
 
 steps:
+  # Download ML model artifacts from GCS into build context
+  - name: gcr.io/cloud-builders/gsutil
+    args:
+      - -m
+      - cp
+      - -r
+      - gs://investor-intelligence-496113-backup/models/*
+      - ./models/
+
   # Build the Docker image
   - name: gcr.io/cloud-builders/docker
     args:
