@@ -7,8 +7,8 @@ import {
 } from 'recharts'
 import client from '../api/client'
 
-function fetchDecision() {
-  return client.get('/decision').then(r => r.data)
+function fetchDecision(lang) {
+  return client.get(`/decision?lang=${lang}`).then(r => r.data)
 }
 
 function fetchProjection(years, monthly) {
@@ -19,13 +19,14 @@ const ACTION_COLOR = { INVEST: '#22c55e', DCA: '#f97316', WAIT: '#ef4444' }
 const ACTION_ICON  = { INVEST: '✓', DCA: '~', WAIT: '✗' }
 
 export default function Decision() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language === 'pl' ? 'pl' : 'en'
   const [years,   setYears]   = useState(20)
   const [monthly, setMonthly] = useState(500)
 
   const { data: dec, isLoading: decLoading, error: decError } = useQuery({
-    queryKey: ['decision'],
-    queryFn:  fetchDecision,
+    queryKey: ['decision', lang],
+    queryFn:  () => fetchDecision(lang),
     retry: 1,
   })
 

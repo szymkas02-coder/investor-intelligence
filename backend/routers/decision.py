@@ -224,6 +224,7 @@ def _make_decision(
     vol_21d:          Optional[float],
     usdpln_current:   Optional[float],
     usdpln_upper_21d: Optional[float],
+    lang:             str = "en",
 ) -> tuple[str, str, list[str], list[str]]:
     """
     Returns (action, confidence, reasons, flags).
@@ -231,21 +232,29 @@ def _make_decision(
     confidence: HIGH | MEDIUM | LOW
     reasons:    list of strings explaining the action
     flags:      non-blocking warnings
+    lang:       'en' or 'pl'
     """
     reasons: list[str] = []
     flags:   list[str] = []
     action = "INVEST"
+    pl = (lang == "pl")
 
     # --- Primary signal: regime ---
     if prob_risk_off > 0.50:
         action = "WAIT"
         reasons.append(
+            f"Prawdopodobieństwo risk-off wynosi {prob_risk_off:.0%} — powyżej progu 50%. "
+            "Zachowanie kapitału do stabilizacji reżimu."
+            if pl else
             f"Risk-off probability is {prob_risk_off:.0%} — above 50% threshold. "
             "Preserving capital until regime stabilises."
         )
     elif prob_risk_off > 0.30:
         action = "DCA"
         reasons.append(
+            f"Prawdopodobieństwo risk-off wynosi {prob_risk_off:.0%} — podwyższone, ale poniżej 50%. "
+            "Inwestuj w 2-3 tygodniowych transzach zamiast jednorazowo."
+            if pl else
             f"Risk-off probability is {prob_risk_off:.0%} — elevated but below 50%. "
             "Invest in 2-3 weekly tranches rather than a lump sum."
         )
@@ -255,6 +264,9 @@ def _make_decision(
         if action == "INVEST":
             action = "DCA"
         reasons.append(
+            f"Prawdopodobieństwo stagflacji wynosi {prob_stagflation:.0%} przy podwyższonej zmienności "
+            f"({vol_21d:.1%}). Stagflacja obniża realne stopy zwrotu — DCA redukuje ryzyko timingu."
+            if pl else
             f"Stagflation probability is {prob_stagflation:.0%} with elevated vol "
             f"({vol_21d:.1%}). Stagflation erodes real returns — DCA reduces timing risk."
         )
@@ -264,6 +276,9 @@ def _make_decision(
         if action == "INVEST":
             action = "DCA"
         reasons.append(
+            f"Prognoza zmienności 21d wynosi {vol_21d:.1%} (w skali roku) — powyżej progu 25%. "
+            "DCA wygładza cenę wejścia w okresach wysokiej zmienności."
+            if pl else
             f"21-day volatility forecast is {vol_21d:.1%} (annualised) — above 25% "
             "threshold. DCA smooths entry price in high-vol periods."
         )
@@ -273,6 +288,11 @@ def _make_decision(
         fx_upside = (usdpln_upper_21d - usdpln_current) / usdpln_current
         if fx_upside > 0.05:
             flags.append(
+                f"PLN/USD: prognoza 90. percentyla na 21 dni to {usdpln_upper_21d:.2f} "
+                f"(+{fx_upside:.1%} od {usdpln_current:.2f}). "
+                "Zakup VWCE.DE może kosztować znacznie więcej PLN za miesiąc — "
+                "rozważ poczekanie lub podział zakupu."
+                if pl else
                 f"PLN/USD: 90th-percentile 21d forecast is {usdpln_upper_21d:.2f} "
                 f"(+{fx_upside:.1%} from {usdpln_current:.2f}). "
                 "Buying VWCE.DE may cost significantly more PLN in a month — "
@@ -282,6 +302,10 @@ def _make_decision(
     # --- Default reason if investing ---
     if action == "INVEST" and not reasons:
         reasons.append(
+            f"Sygnały reżimu są korzystne (prawdop. risk-off {prob_risk_off:.0%}, "
+            f"stagflacja {prob_stagflation:.0%}), a zmienność jest w normie. "
+            "Jednorazowa miesięczna inwestycja jest odpowiednia."
+            if pl else
             f"Regime signals are benign (risk-off prob {prob_risk_off:.0%}, "
             f"stagflation prob {prob_stagflation:.0%}) and volatility is within "
             "normal range. Monthly lump sum investment is appropriate."
@@ -306,6 +330,7 @@ def _make_decision(
 def get_decision(
     db:      Annotated[object, Depends(get_db)],
     _user:   Annotated[str, Depends(get_current_user)],
+    lang:    str = "en",
 ):
     # Latest regime probs
     regime_row = db.execute("""
@@ -358,6 +383,7 @@ def get_decision(
         vol_21d          = vol_21d,
         usdpln_current   = usdpln_current,
         usdpln_upper_21d = usdpln_upper,
+        lang             = lang,
     )
 
     return DecisionResponse(

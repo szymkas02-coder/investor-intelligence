@@ -3,6 +3,8 @@
 
 # Database
 data/
+db_dump.sql
+*.sql.gz
 
 # Models (large binaries)
 models/*.pkl
