@@ -872,8 +872,19 @@ async def upload_broker(
 
         # price_native + currency → convert to PLN using historical FX
         currency = str(item.get("currency", "EUR")).strip().upper()
-        if currency not in ("EUR", "USD", "GBP", "GBP", "PLN"):
+        if currency not in ("EUR", "USD", "GBP", "GBp", "PLN"):
             currency = "EUR"  # safe default for European ETFs
+
+        # Override AI-guessed currency with the actual currency from ticker_metadata.
+        # This fixes cases like ISAC.L which trades on LSE (looks like GBP) but is USD-denominated.
+        meta_row = db.execute(
+            "SELECT currency FROM ticker_metadata WHERE ticker = %s", [ticker]
+        ).fetchone()
+        if meta_row and meta_row[0]:
+            currency = meta_row[0].upper()
+            if currency == "GBP":
+                currency = "GBP"  # keep as-is (our FX calc handles GBP)
+
         try:
             price_native = float(str(item.get("price_native", 0)).replace(",", "."))
         except Exception:
