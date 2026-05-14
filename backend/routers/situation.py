@@ -208,17 +208,31 @@ class ChatRequest(BaseModel):
     message: str
 
 
+_CHAT_HISTORY_TURNS = 10  # how many past turns (user+assistant pairs) to inject
+
+
 @router.post("/chat")
 def chat(
     req:     ChatRequest,
-    db:      Annotated[object, Depends(get_db)],
-    _user:   Annotated[str, Depends(get_current_user)],
+    db:      Annotated[object, Depends(get_db_write)],
+    user_id: Annotated[str, Depends(get_current_user)],
 ):
     if not req.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
     client = _get_genai_client()
     from google.genai import types
+
+    # Load last N turns from DB for this user
+    history_rows = db.execute("""
+        SELECT role, content FROM (
+            SELECT role, content, created_at
+            FROM chat_history
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT %s
+        ) sub ORDER BY created_at ASC
+    """, [user_id, _CHAT_HISTORY_TURNS * 2]).fetchall()
 
     # Build context from app signals + stored briefings
     app_ctx = _get_app_context(db)
@@ -240,15 +254,40 @@ def chat(
 
     system_instruction = "\n".join(system_parts)
 
+    # Build conversation contents: history + new message
+    contents = []
+    for role, content in history_rows:
+        contents.append(types.Content(
+            role="user" if role == "user" else "model",
+            parts=[types.Part(text=content)]
+        ))
+    contents.append(types.Content(
+        role="user",
+        parts=[types.Part(text=req.message)]
+    ))
+
     try:
         response = client.models.generate_content(
             model=CHAT_MODEL,
-            contents=req.message,
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.7,
             ),
         )
-        return {"reply": response.text}
+        reply = response.text
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI error: {e}")
+
+    # Persist this turn to DB
+    db.execute(
+        "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
+        [user_id, "user", req.message[:4000]]
+    )
+    db.execute(
+        "INSERT INTO chat_history (user_id, role, content) VALUES (%s, %s, %s)",
+        [user_id, "assistant", reply[:4000]]
+    )
+    db.commit()
+
+    return {"reply": reply}

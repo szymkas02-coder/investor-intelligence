@@ -143,6 +143,28 @@ if DB_URL:
         finally:
             conn.close()
 
+    def run_migrations():
+        """Create any missing tables. Safe to run on every startup (IF NOT EXISTS)."""
+        raw = _get_pool().getconn()
+        try:
+            cur = raw.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS chat_history (
+                    id         SERIAL PRIMARY KEY,
+                    user_id    VARCHAR(128) NOT NULL,
+                    role       VARCHAR(16)  NOT NULL CHECK (role IN ('user', 'assistant')),
+                    content    TEXT         NOT NULL,
+                    created_at TIMESTAMPTZ  DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_chat_history_user_created
+                ON chat_history (user_id, created_at DESC)
+            """)
+            raw.commit()
+        finally:
+            _get_pool().putconn(raw)
+
 
 # ─── DuckDB path (default, no DATABASE_URL set) ───────────────────────────────
 else:

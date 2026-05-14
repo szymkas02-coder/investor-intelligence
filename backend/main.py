@@ -68,6 +68,14 @@ app.include_router(history.router)
 app.include_router(signals.router)
 app.include_router(situation.router)
 
+# Run DB migrations on startup (creates any missing tables safely)
+try:
+    from backend.database import run_migrations, IS_POSTGRES
+    if IS_POSTGRES:
+        run_migrations()
+except Exception as _e:
+    logging.getLogger(__name__).warning("Migration skipped: %s", _e)
+
 
 @app.get("/tickers")
 def get_tickers(db=Depends(get_db)):
