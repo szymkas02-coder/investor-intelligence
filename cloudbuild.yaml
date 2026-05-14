@@ -25,13 +25,11 @@ substitutions:
 
 steps:
   # Download ML model artifacts from GCS into build context
-  - name: gcr.io/cloud-builders/gsutil
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
     args:
-      - -m
-      - cp
-      - -r
-      - gs://investor-intelligence-496113-backup/models/*
-      - ./models/
+      - -c
+      - mkdir -p ./models && gsutil -m cp -r gs://investor-intelligence-496113-backup/models/* ./models/
 
   # Build the Docker image
   - name: gcr.io/cloud-builders/docker
