@@ -267,6 +267,7 @@ export default function Portfolio() {
               &nbsp;(<strong>{t('portfolio.ikeRemaining', { remaining: data.ike_remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) })}</strong>)
             </>}
           </p>
+          <p className="ike-history-note">{t('portfolio.ikeTrackingNote')}</p>
         </div>
       )}
 

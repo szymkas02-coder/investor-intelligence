@@ -142,6 +142,7 @@
     "ikeAnnualLimit": "Limit roczny",
     "ikeContributed2": "Wpłacono",
     "ikeHistoryNote": "Zielony = limit osiągnięty · Niebieski = ponad 50% · Szary = poniżej 50%",
+    "ikeTrackingNote": "Wartość wpłat obliczana na podstawie transakcji kupna. Możesz też dodać wpłatę gotówkową ręcznie (typ: Wpłata gotówki).",
     "addTransaction": "Dodaj Transakcję",
     "editTransaction": "Edytuj Transakcję",
     "recordTransaction": "Zapisz Transakcję",

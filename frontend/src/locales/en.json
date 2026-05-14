@@ -142,6 +142,7 @@
     "ikeAnnualLimit": "Annual limit",
     "ikeContributed2": "Contributed",
     "ikeHistoryNote": "Green = limit reached · Blue = over 50% · Grey = under 50%",
+    "ikeTrackingNote": "Contributions tracked from buy transactions. You can also add a manual cash deposit (type: Cash Deposit).",
     "addTransaction": "Add Transaction",
     "editTransaction": "Edit Transaction",
     "recordTransaction": "Record Transaction",
