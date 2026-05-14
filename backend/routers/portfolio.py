@@ -764,6 +764,8 @@ async def upload_broker(
     if len(rows_raw) < 2:
         raise HTTPException(status_code=400, detail="Sheet appears empty.")
 
+    pre_extracted_deposits = []  # reserved for future deposit parsing
+
     # --- Build sanitised preview for Gemini (headers + first 30 data rows) ---
     header_row = [_sanitise_cell(c) for c in (rows_raw[0] or [])]
     data_rows  = [
