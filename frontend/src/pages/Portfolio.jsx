@@ -32,7 +32,7 @@ function fetchPrice(ticker, date)       { return client.get(`/portfolio/price/${
 
 const EMPTY_TX = {
   ticker: '', date: new Date().toISOString().slice(0, 10),
-  type: 'buy', shares: '', price_pln: '', account_type: 'IKE', notes: '',
+  type: 'buy', shares: '', price_pln: '', amount_pln: '', account_type: 'IKE', notes: '',
 }
 
 const TYPE_COLOR = { buy: '#22c55e', sell: '#ef4444', dividend: '#3b82f6' }
@@ -129,7 +129,13 @@ export default function Portfolio() {
 
   function handleSubmit(e) {
     e.preventDefault(); setMsg('')
-    const payload = { ...form, shares: parseFloat(form.shares), price_pln: parseFloat(form.price_pln) }
+    let payload
+    if (form.type === 'deposit') {
+      payload = { date: form.date, type: form.type, account_type: form.account_type,
+                  amount_pln: parseFloat(form.amount_pln), notes: form.notes || null }
+    } else {
+      payload = { ...form, shares: parseFloat(form.shares), price_pln: parseFloat(form.price_pln) }
+    }
     if (editId) editMutation.mutate({ id: editId, ...payload })
     else        addMutation.mutate(payload)
   }
@@ -579,76 +585,90 @@ export default function Portfolio() {
       {/* Add / Edit form */}
       {showForm && (
         <div className="card">
-          <h3>{editId ? 'Edit Transaction' : 'Record Transaction'}</h3>
+          <h3>{editId ? t('portfolio.edit') : t('portfolio.addTransaction')}</h3>
           <form className="tx-form" onSubmit={handleSubmit}>
-            <div className="ticker-field">
-              <label>Ticker</label>
-              <input placeholder="e.g. VWCE.DE" required list="ticker-list"
-                     value={form.ticker}
-                     onChange={e => setForm({ ...form, ticker: e.target.value.toUpperCase() })} />
-              <datalist id="ticker-list">
-                {availableTickers.map(t => <option key={t.ticker} value={t.ticker}>{t.name && t.name !== t.ticker ? t.name : ''}</option>)}
-              </datalist>
-            </div>
             <div>
-              <label>Date</label>
+              <label>{t('portfolio.date')}</label>
               <input type="date" required value={form.date}
                      onChange={e => setForm({ ...form, date: e.target.value })} />
             </div>
             <div>
-              <label>Type</label>
+              <label>{t('portfolio.type')}</label>
               <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                <option value="buy">Buy</option>
-                <option value="sell">Sell</option>
-                <option value="dividend">Dividend</option>
+                <option value="buy">{t('portfolio.buy')}</option>
+                <option value="sell">{t('portfolio.sell')}</option>
+                <option value="dividend">{t('portfolio.dividend')}</option>
+                <option value="deposit">{t('portfolio.deposit')}</option>
               </select>
             </div>
             <div>
-              <label>Account</label>
+              <label>{t('portfolio.account')}</label>
               <select value={form.account_type} onChange={e => setForm({ ...form, account_type: e.target.value })}>
                 <option value="IKE">IKE</option>
                 <option value="IKZE">IKZE</option>
-                <option value="regular">Regular</option>
+                {form.type !== 'deposit' && <option value="regular">Regular</option>}
               </select>
             </div>
-            <div>
-              <label>Shares</label>
-              <input type="number" placeholder="0.0000" step="0.0001" required
-                     value={form.shares} onChange={e => setForm({ ...form, shares: e.target.value })} />
-            </div>
-            <div>
-              <label>
-                Price per share (PLN)
-                {priceLoading && <span className="price-fetching"> fetching...</span>}
-                {priceHint && !priceLoading && (
-                  <button type="button" className="price-autofill-btn"
-                          onClick={() => setForm(f => ({ ...f, price_pln: priceHint.price_pln }))}>
-                    Use {priceHint.price_pln.toFixed(2)} PLN
-                    <span className="price-hint-meta">
-                      ({priceHint.price_native} {priceHint.currency} · {priceHint.price_date})
-                    </span>
-                  </button>
-                )}
-              </label>
-              <input type="number" placeholder="0.00" step="0.01" required
-                     value={form.price_pln} onChange={e => setForm({ ...form, price_pln: e.target.value })} />
-            </div>
-            {form.shares && form.price_pln && (
-              <div className="tx-total-preview">
-                Total: <strong>{(parseFloat(form.shares) * parseFloat(form.price_pln)).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} PLN</strong>
+
+            {form.type === 'deposit' ? (
+              <div>
+                <label>{t('portfolio.depositAmount')}</label>
+                <input type="number" placeholder="0.00" step="0.01" min="0.01" required
+                       value={form.amount_pln ?? ''}
+                       onChange={e => setForm({ ...form, amount_pln: e.target.value })} />
               </div>
+            ) : (
+              <>
+                <div className="ticker-field">
+                  <label>{t('portfolio.ticker')}</label>
+                  <input placeholder="e.g. VWCE.DE" required list="ticker-list"
+                         value={form.ticker}
+                         onChange={e => setForm({ ...form, ticker: e.target.value.toUpperCase() })} />
+                  <datalist id="ticker-list">
+                    {availableTickers.map(t => <option key={t.ticker} value={t.ticker}>{t.name && t.name !== t.ticker ? t.name : ''}</option>)}
+                  </datalist>
+                </div>
+                <div>
+                  <label>{t('portfolio.shares')}</label>
+                  <input type="number" placeholder="0.0000" step="0.0001" required
+                         value={form.shares} onChange={e => setForm({ ...form, shares: e.target.value })} />
+                </div>
+                <div>
+                  <label>
+                    {t('portfolio.pricePln')}
+                    {priceLoading && <span className="price-fetching"> fetching...</span>}
+                    {priceHint && !priceLoading && (
+                      <button type="button" className="price-autofill-btn"
+                              onClick={() => setForm(f => ({ ...f, price_pln: priceHint.price_pln }))}>
+                        Use {priceHint.price_pln.toFixed(2)} PLN
+                        <span className="price-hint-meta">
+                          ({priceHint.price_native} {priceHint.currency} · {priceHint.price_date})
+                        </span>
+                      </button>
+                    )}
+                  </label>
+                  <input type="number" placeholder="0.00" step="0.01" required
+                         value={form.price_pln} onChange={e => setForm({ ...form, price_pln: e.target.value })} />
+                </div>
+                {form.shares && form.price_pln && (
+                  <div className="tx-total-preview">
+                    Total: <strong>{(parseFloat(form.shares) * parseFloat(form.price_pln)).toLocaleString('pl-PL', { maximumFractionDigits: 2 })} PLN</strong>
+                  </div>
+                )}
+              </>
             )}
+
             <div className="tx-form-notes">
-              <label>Notes</label>
+              <label>{t('portfolio.notes')}</label>
               <input placeholder="Optional" value={form.notes}
                      onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
             <div className="tx-form-btns">
               <button type="submit" className="btn-primary"
                       disabled={addMutation.isPending || editMutation.isPending}>
-                {(addMutation.isPending || editMutation.isPending) ? 'Saving...' : editId ? 'Save changes' : 'Save transaction'}
+                {(addMutation.isPending || editMutation.isPending) ? t('common.loading') : editId ? t('portfolio.save') : t('portfolio.save')}
               </button>
-              {editId && <button type="button" className="btn-ghost" onClick={cancelEdit}>Cancel</button>}
+              {editId && <button type="button" className="btn-ghost" onClick={cancelEdit}>{t('portfolio.cancel')}</button>}
             </div>
           </form>
           {msg && <p className={msg.startsWith('Error') ? 'error' : 'success-msg'}>{msg}</p>}

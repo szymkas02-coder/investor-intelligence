@@ -144,6 +144,8 @@
     "buy": "Kupno",
     "sell": "Sprzedaż",
     "dividend": "Dywidenda",
+    "deposit": "Wpłata gotówki",
+    "depositAmount": "Kwota wpłaty (PLN)",
     "save": "Zapisz",
     "cancel": "Anuluj",
     "transactions": "Transakcje",

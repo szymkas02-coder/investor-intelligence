@@ -147,14 +147,25 @@ def record_transaction(
         ON CONFLICT (user_id) DO NOTHING
     """)
 
+    # Validate deposit
+    if tx.type == "deposit":
+        if not tx.amount_pln:
+            raise HTTPException(status_code=400, detail="amount_pln required for deposit")
+        if tx.account_type == "regular":
+            raise HTTPException(status_code=400, detail="Deposits only apply to IKE or IKZE accounts")
+
     # Insert transaction
+    ticker_val = f"'{tx.ticker}'" if tx.ticker else 'NULL'
+    shares_val = str(tx.shares) if tx.shares is not None else 'NULL'
+    # For deposits, store amount_pln in price_pln column so delete reversal can read it
+    price_val  = str(tx.amount_pln) if tx.type == "deposit" else (str(tx.price_pln) if tx.price_pln is not None else 'NULL')
     db.execute(f"""
         INSERT INTO user_transactions
             (transaction_id, user_id, ticker, date, type,
              shares, price_pln, usdpln_rate, account_type, notes)
         VALUES (
-            '{tx_id}', '{user_id}', '{tx.ticker}', '{tx.date}', '{tx.type}',
-            {tx.shares}, {tx.price_pln},
+            '{tx_id}', '{user_id}', {ticker_val}, '{tx.date}', '{tx.type}',
+            {shares_val}, {price_val},
             {tx.usdpln_rate if tx.usdpln_rate else 'NULL'},
             '{tx.account_type}',
             {'NULL' if not tx.notes else f"'{tx.notes}'"}
@@ -162,7 +173,19 @@ def record_transaction(
     """)
 
     # Update positions (upsert)
-    if tx.type == "buy":
+    if tx.type == "deposit":
+        year   = tx.date.year
+        amount = tx.amount_pln
+        limit  = IKE_LIMITS.get(year, 28260.0)
+        db.execute(f"""
+            INSERT INTO ike_contributions (user_id, year, contributed_pln, limit_pln)
+            VALUES ('{user_id}', {year}, {amount}, {limit})
+            ON CONFLICT (user_id, year) DO UPDATE SET
+                contributed_pln = ike_contributions.contributed_pln + {amount},
+                limit_pln = {limit}
+        """)
+
+    elif tx.type == "buy":
         db.execute(f"""
             INSERT INTO user_positions
                 (user_id, ticker, shares, avg_cost_pln, avg_cost_usdpln,
@@ -212,10 +235,12 @@ def record_transaction(
 
     db.commit()
 
-    return TransactionResponse(
-        transaction_id = tx_id,
-        message        = f"{tx.type.capitalize()} of {tx.shares} {tx.ticker} recorded.",
-    )
+    if tx.type == "deposit":
+        msg = f"Deposit of {tx.amount_pln:.2f} PLN to {tx.account_type} recorded."
+    else:
+        msg = f"{tx.type.capitalize()} of {tx.shares} {tx.ticker} recorded."
+
+    return TransactionResponse(transaction_id=tx_id, message=msg)
 
 
 @router.get("/price/{ticker}")
@@ -372,12 +397,20 @@ def delete_transaction(
             """)
 
     elif tx_type == "sell":
-        # Restore shares (we don't know original avg cost so just restore shares)
         db.execute(f"""
             UPDATE user_positions
             SET shares = shares + {shares}, updated_at = now()
             WHERE user_id = '{user_id}' AND ticker = '{ticker}' AND account_type = '{account_type}'
         """)
+
+    elif tx_type == "deposit":
+        # price_pln stores the deposit amount for deposits
+        if price_pln and account_type in ("IKE", "IKZE"):
+            db.execute(f"""
+                UPDATE ike_contributions
+                SET contributed_pln = GREATEST(0, contributed_pln - {price_pln})
+                WHERE user_id = '{user_id}' AND year = {tx_date.year}
+            """)
 
     db.commit()
     return TransactionResponse(transaction_id=transaction_id, message="Transaction deleted.")

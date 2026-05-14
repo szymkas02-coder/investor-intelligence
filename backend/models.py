@@ -115,11 +115,12 @@ class PortfolioResponse(BaseModel):
 
 
 class TransactionCreate(BaseModel):
-    ticker:       str
+    ticker:       Optional[str] = None
     date:         date
-    type:         str = Field(..., pattern="^(buy|sell|dividend)$")
-    shares:       float = Field(..., gt=0)
-    price_pln:    float = Field(..., gt=0)
+    type:         str = Field(..., pattern="^(buy|sell|dividend|deposit)$")
+    shares:       Optional[float] = Field(default=None, gt=0)
+    price_pln:    Optional[float] = Field(default=None, gt=0)
+    amount_pln:   Optional[float] = Field(default=None, gt=0)  # for deposit type
     usdpln_rate:  Optional[float] = None
     account_type: str = Field(default="IKE", pattern="^(IKE|IKZE|regular)$")
     notes:        Optional[str] = None
@@ -132,11 +133,11 @@ class TransactionResponse(BaseModel):
 
 class TransactionRow(BaseModel):
     transaction_id: str
-    ticker:         str
+    ticker:         Optional[str]
     date:           date
     type:           str
-    shares:         float
-    price_pln:      float
+    shares:         Optional[float]
+    price_pln:      Optional[float]
     account_type:   str
     notes:          Optional[str]
     created_at:     Optional[datetime]
