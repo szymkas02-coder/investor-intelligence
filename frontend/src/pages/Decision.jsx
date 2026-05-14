@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -21,8 +21,34 @@ const ACTION_ICON  = { INVEST: '✓', DCA: '~', WAIT: '✗' }
 export default function Decision() {
   const { t, i18n } = useTranslation()
   const lang = i18n.language === 'pl' ? 'pl' : 'en'
+
+  // Display values — update immediately on keystroke
+  const [yearsInput,   setYearsInput]   = useState(20)
+  const [monthlyInput, setMonthlyInput] = useState(500)
+
+  // Debounced values — only update after user stops typing (600ms)
+  // These drive the actual API query so we don't fire on every keystroke
   const [years,   setYears]   = useState(20)
   const [monthly, setMonthly] = useState(500)
+  const debounceRef = useRef(null)
+
+  function handleYearsChange(val) {
+    setYearsInput(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const n = Math.max(1, Math.min(50, Number(val)))
+      if (!isNaN(n) && n > 0) setYears(n)
+    }, 600)
+  }
+
+  function handleMonthlyChange(val) {
+    setMonthlyInput(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      const n = Math.max(0, Math.min(50000, Number(val)))
+      if (!isNaN(n)) setMonthly(n)
+    }, 600)
+  }
 
   const { data: dec, isLoading: decLoading, error: decError } = useQuery({
     queryKey: ['decision', lang],
@@ -80,13 +106,13 @@ export default function Decision() {
         <div className="proj-controls">
           <label>
             {t('decision.horizon')}
-            <input type="number" min="1" max="50" value={years}
-                   onChange={e => setYears(Number(e.target.value))} />
+            <input type="number" min="1" max="50" value={yearsInput}
+                   onChange={e => handleYearsChange(e.target.value)} />
           </label>
           <label>
             {t('decision.monthly')}
-            <input type="number" min="0" max="50000" step="50" value={monthly}
-                   onChange={e => setMonthly(Number(e.target.value))} />
+            <input type="number" min="0" max="50000" step="50" value={monthlyInput}
+                   onChange={e => handleMonthlyChange(e.target.value)} />
           </label>
         </div>
 
