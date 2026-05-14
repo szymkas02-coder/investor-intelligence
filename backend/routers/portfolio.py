@@ -1116,16 +1116,17 @@ def get_portfolio_analysis(
     db:      Annotated[object, Depends(get_db)],
     user_id: Annotated[str, Depends(get_current_user)],
 ):
-    """Return weighted region + sector breakdown across all held ETF positions.
+    """Return weighted region + sector + commodity breakdown across all held ETF positions.
 
     Logic:
       1. Fetch current positions with PLN values (same FX logic as get_portfolio).
       2. For each position, look up etf_allocations for that ticker.
-      3. Weight each region/sector allocation by the position's PLN value.
+      3. Weight each region/sector/commodity allocation by the position's PLN value.
       4. Normalise totals to 100%.
-      5. Return {regions, sectors, total_value_pln, coverage_pct}.
+      5. Return {regions, sectors, commodities, total_value_pln, coverage_pct}.
 
     coverage_pct = fraction of total portfolio value that has allocation data.
+    Gold/commodity ETFs contribute only to the 'commodities' breakdown (not regions/sectors).
     """
     # FX rates
     fx_row = db.execute("""
@@ -1159,7 +1160,7 @@ def get_portfolio_analysis(
 
     if not pos_rows:
         return {
-            "regions": [], "sectors": [],
+            "regions": [], "sectors": [], "commodities": [],
             "total_value_pln": 0.0, "coverage_pct": 0.0,
         }
 
@@ -1180,7 +1181,7 @@ def get_portfolio_analysis(
     total_value = sum(position_values.values())
     if total_value <= 0:
         return {
-            "regions": [], "sectors": [],
+            "regions": [], "sectors": [], "commodities": [],
             "total_value_pln": 0.0, "coverage_pct": 0.0,
         }
 
@@ -1198,8 +1199,9 @@ def get_portfolio_analysis(
         alloc_map.setdefault(ticker, {}).setdefault(alloc_type, {})[label] = float(weight)
 
     # Weighted aggregation
-    region_totals: dict[str, float] = {}
-    sector_totals: dict[str, float] = {}
+    region_totals:    dict[str, float] = {}
+    sector_totals:    dict[str, float] = {}
+    commodity_totals: dict[str, float] = {}
     covered_value = 0.0
 
     for ticker, val in position_values.items():
@@ -1215,6 +1217,9 @@ def get_portfolio_analysis(
         for label, w in ticker_allocs.get("sector", {}).items():
             sector_totals[label] = sector_totals.get(label, 0.0) + w * weight_fraction
 
+        for label, w in ticker_allocs.get("commodity", {}).items():
+            commodity_totals[label] = commodity_totals.get(label, 0.0) + w * weight_fraction
+
     # Normalise to covered portion only, then express as % of portfolio
     # (weights already sum correctly if ETF weights sum to 1.0)
     def _to_sorted_list(totals: dict) -> list:
@@ -1228,9 +1233,68 @@ def get_portfolio_analysis(
     return {
         "regions":         _to_sorted_list(region_totals),
         "sectors":         _to_sorted_list(sector_totals),
+        "commodities":     _to_sorted_list(commodity_totals),
         "total_value_pln": round(total_value, 2),
         "coverage_pct":    coverage_pct,
     }
+
+
+@router.post("/allocations/refresh")
+def refresh_allocations(
+    db:      Annotated[object, Depends(get_db_write)],
+    _user:   Annotated[str, Depends(get_current_user)],
+):
+    """Refresh ETF allocation data from iShares public API.
+
+    Rate-limited: only runs if the most recent allocation row is older than 7 days.
+    If iShares is unreachable the seed data remains unchanged.
+    Returns {"updated": [...], "failed": [...], "skipped": [...], "skipped_rate_limit": bool}.
+    """
+    import datetime as _dt
+    import logging
+    _log = logging.getLogger(__name__)
+
+    # Rate-limit check: only refresh if last update was >7 days ago
+    row = db.execute("""
+        SELECT MAX(updated_at) FROM etf_allocations
+    """).fetchone()
+    last_updated = row[0] if row else None
+
+    if last_updated is not None:
+        now_utc = _dt.datetime.now(_dt.timezone.utc)
+        if hasattr(last_updated, "tzinfo") and last_updated.tzinfo is not None:
+            age = now_utc - last_updated
+        else:
+            age = now_utc - last_updated.replace(tzinfo=_dt.timezone.utc)
+        if age.days < 7:
+            _log.info("Allocation refresh skipped — last update was %s days ago", age.days)
+            return {
+                "updated": [],
+                "failed":  [],
+                "skipped": [],
+                "skipped_rate_limit": True,
+                "message": (
+                    f"Allocation data is up to date (last updated {age.days} day(s) ago). "
+                    "Refresh allowed every 7 days."
+                ),
+            }
+
+    from backend.etf_ishares_fetch import refresh_allocations_from_ishares
+    result = refresh_allocations_from_ishares(db)
+    result["skipped_rate_limit"] = False
+
+    if result["updated"]:
+        result["message"] = (
+            f"Updated {len(result['updated'])} ticker(s): {', '.join(result['updated'])}."
+            + (f" Failed: {', '.join(result['failed'])}." if result["failed"] else "")
+        )
+    else:
+        result["message"] = (
+            "No tickers updated from iShares. Seed data unchanged."
+            + (f" Failed: {', '.join(result['failed'])}." if result["failed"] else "")
+        )
+
+    return result
 
 
 @router.get("/ike-history")

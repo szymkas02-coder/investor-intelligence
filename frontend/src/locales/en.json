@@ -217,9 +217,13 @@
     "analysis": "Portfolio Breakdown",
     "regions": "Region Breakdown",
     "sectors": "Sector Breakdown",
+    "commodities": "Commodities",
     "coverage": "{{pct}}% of portfolio value covered (allocation data available)",
     "noCoverage": "No allocation data available for held positions.",
-    "loadingAnalysis": "Loading analysis..."
+    "loadingAnalysis": "Loading analysis...",
+    "refreshAllocations": "Refresh allocation data",
+    "allocationRefreshed": "Allocation data updated",
+    "allocationRefreshFailed": "Refresh failed"
   },
   "components": {
     "annualised": "annualised",

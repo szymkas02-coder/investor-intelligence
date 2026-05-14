@@ -87,6 +87,8 @@ export default function Portfolio() {
   const [brokerFileCache, setBrokerFileCache] = useState(null)   // cached File object for sheet re-parse
   const [brokerConfirming, setBrokerConfirming] = useState(false)
   const [brokerMsg,       setBrokerMsg]       = useState(null)
+  const [allocRefreshing, setAllocRefreshing] = useState(false)
+  const [allocRefreshMsg, setAllocRefreshMsg] = useState(null)
 
   // Auto-fetch price when ticker is set and form is open
   useEffect(() => {
@@ -168,6 +170,20 @@ export default function Portfolio() {
   }
 
   function cancelEdit() { setEditId(null); setForm(EMPTY_TX); setShowForm(false) }
+
+  async function handleAllocRefresh() {
+    setAllocRefreshing(true)
+    setAllocRefreshMsg(null)
+    try {
+      const res = await client.post('/portfolio/allocations/refresh')
+      setAllocRefreshMsg({ type: 'success', text: res.data.message })
+      qc.invalidateQueries({ queryKey: ['portfolio-analysis'] })
+    } catch (err) {
+      setAllocRefreshMsg({ type: 'error', text: err.response?.data?.detail ?? err.message })
+    } finally {
+      setAllocRefreshing(false)
+    }
+  }
 
   function downloadTemplate() {
     client.get('/portfolio/template', { responseType: 'blob' }).then(res => {
@@ -353,7 +369,7 @@ export default function Portfolio() {
         <h3>{t('portfolio.analysis')}</h3>
         {analysisLoading ? (
           <p>{t('portfolio.loadingAnalysis')}</p>
-        ) : !analysisData || (!analysisData.regions?.length && !analysisData.sectors?.length) ? (
+        ) : !analysisData || (!analysisData.regions?.length && !analysisData.sectors?.length && !analysisData.commodities?.length) ? (
           <p className="empty">{t('portfolio.noCoverage')}</p>
         ) : (
           <>
@@ -413,6 +429,34 @@ export default function Portfolio() {
                   </ResponsiveContainer>
                 </div>
               )}
+
+              {/* Commodities pie — only shown when portfolio contains gold/commodity ETFs */}
+              {analysisData.commodities?.length > 0 && (
+                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: 4, fontWeight: 600, fontSize: '0.95rem' }}>
+                    {t('portfolio.commodities')}
+                  </h4>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie
+                        data={analysisData.commodities}
+                        dataKey="weight_pct"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={({ label, weight_pct }) => `${label} ${weight_pct.toFixed(1)}%`}
+                        labelLine={false}
+                      >
+                        {analysisData.commodities.map((entry, idx) => (
+                          <Cell key={entry.label} fill={ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'Weight']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             {/* Legend tables below charts */}
@@ -439,11 +483,39 @@ export default function Portfolio() {
                   ))}
                 </div>
               )}
+              {analysisData.commodities?.length > 0 && (
+                <div style={{ flex: '1 1 200px', minWidth: 180 }}>
+                  {analysisData.commodities.map((c, idx) => (
+                    <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontSize: '0.82rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length], flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: '#374151' }}>{c.label}</span>
+                      <strong style={{ color: '#111827' }}>{c.weight_pct.toFixed(1)}%</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.75rem' }}>
               {t('portfolio.coverage', { pct: analysisData.coverage_pct })}
             </p>
+
+            {/* Refresh allocation data from iShares */}
+            <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn-ghost btn-sm" onClick={handleAllocRefresh} disabled={allocRefreshing}>
+                {allocRefreshing ? t('common.loading') : t('portfolio.refreshAllocations')}
+              </button>
+              {allocRefreshMsg && (
+                <span style={{
+                  fontSize: '0.8rem',
+                  color: allocRefreshMsg.type === 'success' ? '#22c55e' : '#ef4444',
+                }}>
+                  {allocRefreshMsg.type === 'success'
+                    ? t('portfolio.allocationRefreshed') + ': ' + allocRefreshMsg.text
+                    : t('portfolio.allocationRefreshFailed') + ': ' + allocRefreshMsg.text}
+                </span>
+              )}
+            </div>
           </>
         )}
       </div>

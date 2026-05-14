@@ -217,9 +217,13 @@
     "analysis": "Struktura Portfela",
     "regions": "Podział Regionalny",
     "sectors": "Podział Sektorowy",
+    "commodities": "Surowce",
     "coverage": "{{pct}}% wartości portfela objęte (dane alokacji dostępne)",
     "noCoverage": "Brak danych alokacji dla posiadanych pozycji.",
-    "loadingAnalysis": "Ładowanie analizy..."
+    "loadingAnalysis": "Ładowanie analizy...",
+    "refreshAllocations": "Odśwież dane alokacji",
+    "allocationRefreshed": "Dane alokacji zaktualizowane",
+    "allocationRefreshFailed": "Odświeżanie nieudane"
   },
   "components": {
     "annualised": "w skali roku",
