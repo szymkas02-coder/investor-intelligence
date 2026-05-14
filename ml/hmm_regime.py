@@ -30,6 +30,9 @@ import pandas as pd
 from hmmlearn.hmm import GaussianHMM
 from sklearn.preprocessing import StandardScaler
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from db.init_db import get_connection  # noqa: E402
+
 warnings.filterwarnings("ignore")
 
 ROOT     = Path(__file__).parent.parent
