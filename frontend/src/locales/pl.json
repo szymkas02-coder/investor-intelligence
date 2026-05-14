@@ -213,7 +213,13 @@
     "parsing": "Parsowanie...",
     "aiParsed": "AI sparsowało {{count}} transakcję/transakcje — sprawdź przed importem",
     "confirmImport": "Potwierdź import ({{count}} wierszy)",
-    "setAllTo": "Ustaw wszystkie na:"
+    "setAllTo": "Ustaw wszystkie na:",
+    "analysis": "Struktura Portfela",
+    "regions": "Podział Regionalny",
+    "sectors": "Podział Sektorowy",
+    "coverage": "{{pct}}% wartości portfela objęte (dane alokacji dostępne)",
+    "noCoverage": "Brak danych alokacji dla posiadanych pozycji.",
+    "loadingAnalysis": "Ładowanie analizy..."
   },
   "components": {
     "annualised": "w skali roku",

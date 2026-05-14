@@ -348,6 +348,106 @@ export default function Portfolio() {
         </table>}
       </div>
 
+      {/* Portfolio breakdown — region & sector pie charts */}
+      <div className="card">
+        <h3>{t('portfolio.analysis')}</h3>
+        {analysisLoading ? (
+          <p>{t('portfolio.loadingAnalysis')}</p>
+        ) : !analysisData || (!analysisData.regions?.length && !analysisData.sectors?.length) ? (
+          <p className="empty">{t('portfolio.noCoverage')}</p>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', justifyContent: 'space-around' }}>
+              {/* Region pie */}
+              {analysisData.regions?.length > 0 && (
+                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: 4, fontWeight: 600, fontSize: '0.95rem' }}>
+                    {t('portfolio.regions')}
+                  </h4>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie
+                        data={analysisData.regions}
+                        dataKey="weight_pct"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={({ label, weight_pct }) => `${label} ${weight_pct.toFixed(1)}%`}
+                        labelLine={false}
+                      >
+                        {analysisData.regions.map((entry, idx) => (
+                          <Cell key={entry.label} fill={ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'Weight']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Sector pie */}
+              {analysisData.sectors?.length > 0 && (
+                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                  <h4 style={{ textAlign: 'center', marginBottom: 4, fontWeight: 600, fontSize: '0.95rem' }}>
+                    {t('portfolio.sectors')}
+                  </h4>
+                  <ResponsiveContainer width="100%" height={240}>
+                    <PieChart>
+                      <Pie
+                        data={analysisData.sectors}
+                        dataKey="weight_pct"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={90}
+                        label={({ label, weight_pct }) => `${label} ${weight_pct.toFixed(1)}%`}
+                        labelLine={false}
+                      >
+                        {analysisData.sectors.map((entry, idx) => (
+                          <Cell key={entry.label} fill={ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'Weight']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* Legend tables below charts */}
+            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginTop: '0.5rem', justifyContent: 'space-around' }}>
+              {analysisData.regions?.length > 0 && (
+                <div style={{ flex: '1 1 200px', minWidth: 180 }}>
+                  {analysisData.regions.map((r, idx) => (
+                    <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontSize: '0.82rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length], flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: '#374151' }}>{r.label}</span>
+                      <strong style={{ color: '#111827' }}>{r.weight_pct.toFixed(1)}%</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {analysisData.sectors?.length > 0 && (
+                <div style={{ flex: '1 1 200px', minWidth: 180 }}>
+                  {analysisData.sectors.map((s, idx) => (
+                    <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, fontSize: '0.82rem' }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 2, background: ANALYSIS_COLORS[idx % ANALYSIS_COLORS.length], flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: '#374151' }}>{s.label}</span>
+                      <strong style={{ color: '#111827' }}>{s.weight_pct.toFixed(1)}%</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.75rem' }}>
+              {t('portfolio.coverage', { pct: analysisData.coverage_pct })}
+            </p>
+          </>
+        )}
+      </div>
+
       {/* Transaction history */}
       <div className="card">
         <div className="tx-history-header">
