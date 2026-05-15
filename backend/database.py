@@ -172,6 +172,22 @@ if DB_URL:
                     PRIMARY KEY (ticker, allocation_type, label)
                 )
             """)
+            # Allow NULL ticker/shares/price_pln for DEPOSIT transactions (idempotent)
+            cur.execute("""
+                DO $$ BEGIN
+                    ALTER TABLE user_transactions ALTER COLUMN ticker DROP NOT NULL;
+                EXCEPTION WHEN others THEN NULL; END $$;
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                    ALTER TABLE user_transactions ALTER COLUMN shares DROP NOT NULL;
+                EXCEPTION WHEN others THEN NULL; END $$;
+            """)
+            cur.execute("""
+                DO $$ BEGIN
+                    ALTER TABLE user_transactions ALTER COLUMN price_pln DROP NOT NULL;
+                EXCEPTION WHEN others THEN NULL; END $$;
+            """)
             raw.commit()
             # Seed allocation data — uses _PgAdapter so it can reuse the same pattern
             from backend.database import _PgAdapter

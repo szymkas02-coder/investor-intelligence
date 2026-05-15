@@ -474,7 +474,11 @@ export default function Portfolio() {
                     disabled={!transactions.length}>
               ✕ {t('portfolio.deleteAll')}
             </button>
-            <button className="btn-primary btn-sm" onClick={() => { setShowForm(v => !v); setEditId(null); setForm(EMPTY_TX) }}>
+            <button className="btn-primary btn-sm" onClick={() => {
+              const opening = !(showForm && !editId)
+              setShowForm(v => !v); setEditId(null); setForm(EMPTY_TX)
+              if (opening) setTimeout(() => formCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+            }}>
               {showForm && !editId ? `✕ ${t('portfolio.cancel')}` : `+ ${t('portfolio.addTransaction')}`}
             </button>
           </div>
