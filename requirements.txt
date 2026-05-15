@@ -12,6 +12,8 @@ pytrends>=4.9.2
 lightgbm>=4.3.0
 scikit-learn>=1.4.0
 shap>=0.45.0
+lifelines>=0.27.0
+hmmlearn>=0.3.0
 
 # Database
 psycopg2-binary>=2.9.9

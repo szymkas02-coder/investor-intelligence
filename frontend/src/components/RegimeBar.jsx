@@ -1,20 +1,20 @@
 import { useTranslation } from 'react-i18next'
 
 const COLORS = {
-  risk_on:     '#22c55e',
-  stagflation: '#f97316',
-  risk_off:    '#ef4444',
-  deflation:   '#a855f7',
+  bull:          '#22c55e',
+  consolidation: '#3b82f6',
+  stagflation:   '#f97316',
+  bear:          '#ef4444',
 }
 
-export default function RegimeBar({ probRiskOn, probRiskOff, probStagflation, probDeflation }) {
+export default function RegimeBar({ probBull, probBear, probConsolidation, probStagflation }) {
   const { t } = useTranslation()
 
   const segments = [
-    { label: t('signals.riskOn'),     value: probRiskOn,     key: 'risk_on' },
-    { label: t('signals.stagflation'), value: probStagflation, key: 'stagflation' },
-    { label: t('signals.riskOff'),    value: probRiskOff,    key: 'risk_off' },
-    { label: t('signals.deflation'),  value: probDeflation,  key: 'deflation' },
+    { label: t('signals.bull'),          value: probBull ?? 0,          key: 'bull' },
+    { label: t('signals.consolidation'), value: probConsolidation ?? 0, key: 'consolidation' },
+    { label: t('signals.stagflation'),   value: probStagflation ?? 0,   key: 'stagflation' },
+    { label: t('signals.bear'),          value: probBear ?? 0,          key: 'bear' },
   ]
 
   return (

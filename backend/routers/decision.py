@@ -13,14 +13,14 @@ WHY a rule-based decision engine rather than another ML model:
   explicit, auditable rules. This matches how professional investment committees
   work: models inform the decision, humans (or rules) make it.
 
-Decision logic:
-  - risk_off probability > 0.5  → WAIT  (preserve capital)
-  - risk_off probability > 0.3  → DCA   (invest in tranches, not lump sum)
-  - stagflation probability > 0.5 AND vol_21d > 0.20 → DCA
-  - vol_21d forecast > 0.25     → DCA   (elevated near-term uncertainty)
+Decision logic (all inputs are scientifically clean — no circular LightGBM):
+  - HMM bear prob > 0.50 AND recession_prob > 0.40  → WAIT
+  - spread_10y_3m < -0.50 (deep yield curve inversion)  → WAIT
+  - HMM bear prob > 0.35                            → DCA
+  - recession_prob > 0.30                           → DCA
+  - vol_21d forecast > 0.25                         → DCA
   - usdpln rate_upper (90th pct, 21d) > current * 1.05 → FLAG_FX
-    (PLN expected to weaken significantly — buying USD-denominated ETF costs more)
-  - otherwise                   → INVEST (lump sum is fine)
+  - otherwise                                       → INVEST
 
 Projection — horizon-dependent ensemble:
   Different signals dominate at different horizons (evidence-based):
@@ -42,6 +42,7 @@ from pydantic import BaseModel
 
 from backend.auth import get_current_user
 from backend.database import get_db
+from backend.hmm_utils import resolve_hmm_probs
 
 router = APIRouter(prefix="/decision", tags=["decision"])
 
@@ -51,8 +52,9 @@ router = APIRouter(prefix="/decision", tags=["decision"])
 # ---------------------------------------------------------------------------
 
 class SignalSummary(BaseModel):
-    prob_risk_off:    float
-    prob_stagflation: float
+    prob_bear:        float           # HMM bear probability
+    prob_stagflation: float           # HMM stagflation (high-vol stress) probability
+    recession_prob:   float           # NBER-calibrated recession probability
     vol_21d_forecast: Optional[float]
     usdpln_current:   Optional[float]
     usdpln_upper_21d: Optional[float]
@@ -334,8 +336,10 @@ def _ensemble_summary(
 # ---------------------------------------------------------------------------
 
 def _make_decision(
-    prob_risk_off:    float,
+    prob_bear:        float,
     prob_stagflation: float,
+    recession_prob:   float,
+    spread_10y_3m:    Optional[float],
     vol_21d:          Optional[float],
     usdpln_current:   Optional[float],
     usdpln_upper_21d: Optional[float],
@@ -345,45 +349,81 @@ def _make_decision(
     Returns (action, confidence, reasons, flags).
     action:     INVEST | DCA | WAIT
     confidence: HIGH | MEDIUM | LOW
-    reasons:    list of strings explaining the action
-    flags:      non-blocking warnings
-    lang:       'en' or 'pl'
+
+    Signal sources (all scientifically clean, no circular labels):
+      - prob_bear:        HMM bear state (genuinely unsupervised)
+      - prob_stagflation: HMM stagflation = high-vol stress state
+                          (negative returns, highest vol across all 4 states)
+      - recession_prob:   NBER USREC (known look-ahead limitation, acceptable)
+      - spread_10y_3m:    raw macro — no model needed
+      - vol_21d:          RF HAR-RV model
     """
     reasons: list[str] = []
     flags:   list[str] = []
     action = "INVEST"
     pl = (lang == "pl")
 
-    # --- Primary signal: regime ---
-    if prob_risk_off > 0.50:
+    # Combine bear + stagflation into a single stress probability
+    # Stagflation (high-vol, neg-return state) is treated as DCA-level caution,
+    # not as WAIT (it's volatile but not necessarily a crash regime)
+    stress_prob = max(prob_bear, prob_stagflation)
+
+    # --- Primary signal: combined bear/stress + recession ---
+    if prob_bear > 0.50 and recession_prob > 0.40:
         action = "WAIT"
         reasons.append(
-            f"Prawdopodobieństwo risk-off wynosi {prob_risk_off:.0%} — powyżej progu 50%. "
-            "Zachowanie kapitału do stabilizacji reżimu."
+            f"Prawdopodobieństwo bessy HMM wynosi {prob_bear:.0%} przy ryzyku recesji "
+            f"{recession_prob:.0%} — oba powyżej progów. Tryb ochrony kapitału do stabilizacji."
             if pl else
-            f"Risk-off probability is {prob_risk_off:.0%} — above 50% threshold. "
-            "Preserving capital until regime stabilises."
+            f"HMM bear probability {prob_bear:.0%} combined with recession risk "
+            f"{recession_prob:.0%} — both above thresholds. Capital preservation mode."
         )
-    elif prob_risk_off > 0.30:
+    # --- Deep yield curve inversion ---
+    elif spread_10y_3m is not None and spread_10y_3m < -0.50:
+        action = "WAIT"
+        reasons.append(
+            f"Krzywa rentowności głęboko odwrócona (10L–3M = {spread_10y_3m:.2f}%). "
+            "Historyczny wskaźnik wyprzedzający recesji w horyzoncie 12–18 miesięcy."
+            if pl else
+            f"Yield curve deeply inverted (10Y-3M = {spread_10y_3m:.2f}%). "
+            "Historical leading indicator of recession within 12-18 months."
+        )
+    # --- HMM stagflation state ---
+    # This HMM cluster = high CAPE, negative excess CAPE yield (ECY), elevated vol.
+    # In 145Y Shiller history, it's the "expensive market" cluster (centroid CAPE≈20,
+    # current CAPE≈39 is beyond training distribution — but stagflation is the
+    # closest cluster). Historical return in this state: +2.2%/yr vs +7%/yr for bull.
+    elif prob_stagflation > 0.50:
         action = "DCA"
         reasons.append(
-            f"Prawdopodobieństwo risk-off wynosi {prob_risk_off:.0%} — podwyższone, ale poniżej 50%. "
-            "Inwestuj w 2-3 tygodniowych transzach zamiast jednorazowo."
+            f"HMM przypisuje bieżące środowisko do klastra 'stagflacja' — drogie rynki "
+            f"(CAPE historycznie ~20, aktualnie wyżej), negatywny Excess CAPE Yield, podwyższona zmienność. "
+            "Historyczny zwrot w tym klastrze: +2%/rok vs +7%/rok w hossie. DCA redukuje ryzyko wejścia."
             if pl else
-            f"Risk-off probability is {prob_risk_off:.0%} — elevated but below 50%. "
+            f"HMM assigns current environment to the 'stagflation' cluster — expensive market "
+            f"(CAPE historically ~20 in this cluster, currently higher), negative Excess CAPE Yield, "
+            f"elevated volatility. Historical cluster return: ~+2%/yr vs +7%/yr in bull. "
+            "DCA reduces entry timing risk."
+        )
+    # --- Elevated bear probability ---
+    elif prob_bear > 0.35:
+        action = "DCA"
+        reasons.append(
+            f"Prawdopodobieństwo bessy HMM wynosi {prob_bear:.0%} — podwyższone, ale poniżej progu WAIT. "
+            "Inwestuj w 2–3 tygodniowych transzach zamiast jednorazowo."
+            if pl else
+            f"HMM bear probability is {prob_bear:.0%} — elevated but below WAIT threshold. "
             "Invest in 2-3 weekly tranches rather than a lump sum."
         )
-
-    # --- Stagflation overlay ---
-    if prob_stagflation > 0.50 and (vol_21d or 0) > 0.20:
-        if action == "INVEST":
-            action = "DCA"
+    # --- Elevated recession risk ---
+    elif recession_prob > 0.30:
+        action = "DCA"
         reasons.append(
-            f"Prawdopodobieństwo stagflacji wynosi {prob_stagflation:.0%} przy podwyższonej zmienności "
-            f"({vol_21d:.1%}). Stagflacja obniża realne stopy zwrotu — DCA redukuje ryzyko timingu."
+            f"Prawdopodobieństwo recesji {recession_prob:.0%} jest podwyższone. "
+            "DCA redukuje ryzyko timingu w warunkach niepewności gospodarczej."
             if pl else
-            f"Stagflation probability is {prob_stagflation:.0%} with elevated vol "
-            f"({vol_21d:.1%}). Stagflation erodes real returns — DCA reduces timing risk."
+            f"Recession probability {recession_prob:.0%} is elevated. "
+            "DCA reduces timing risk during economic uncertainty."
         )
 
     # --- Volatility overlay ---
@@ -417,19 +457,20 @@ def _make_decision(
     # --- Default reason if investing ---
     if action == "INVEST" and not reasons:
         reasons.append(
-            f"Sygnały reżimu są korzystne (prawdop. risk-off {prob_risk_off:.0%}, "
-            f"stagflacja {prob_stagflation:.0%}), a zmienność jest w normie. "
+            f"Sygnały reżimu są korzystne (HMM bessa {prob_bear:.0%}, "
+            f"stagflacja {prob_stagflation:.0%}, recesja {recession_prob:.0%}), a zmienność jest w normie. "
             "Jednorazowa miesięczna inwestycja jest odpowiednia."
             if pl else
-            f"Regime signals are benign (risk-off prob {prob_risk_off:.0%}, "
-            f"stagflation prob {prob_stagflation:.0%}) and volatility is within "
-            "normal range. Monthly lump sum investment is appropriate."
+            f"Regime signals are benign (HMM bear {prob_bear:.0%}, "
+            f"stagflation {prob_stagflation:.0%}, recession {recession_prob:.0%}) "
+            "and volatility is within normal range. Monthly lump sum investment is appropriate."
         )
 
     # --- Confidence ---
-    if prob_risk_off > 0.65 or (prob_risk_off < 0.15 and (vol_21d or 0) < 0.15):
+    if (stress_prob > 0.65 and recession_prob > 0.50) or \
+       (stress_prob < 0.10 and recession_prob < 0.10 and (vol_21d or 0) < 0.15):
         confidence = "HIGH"
-    elif prob_risk_off > 0.40 or (vol_21d or 0) > 0.22:
+    elif stress_prob > 0.35 or recession_prob > 0.25 or (vol_21d or 0) > 0.22:
         confidence = "MEDIUM"
     else:
         confidence = "HIGH" if action == "INVEST" else "MEDIUM"
@@ -447,17 +488,31 @@ def get_decision(
     _user:   Annotated[str, Depends(get_current_user)],
     lang:    str = "en",
 ):
-    # Latest regime probs
-    regime_row = db.execute("""
-        SELECT date, prob_risk_off, prob_stagflation
-        FROM regime_predictions
+    # Latest HMM state + probabilities
+    hmm_row = db.execute("""
+        SELECT date, state_label, prob_bull, prob_bear, prob_consolidation
+        FROM hmm_predictions
         ORDER BY date DESC, predicted_at DESC
         LIMIT 1
     """).fetchone()
 
-    as_of          = regime_row[0] if regime_row else date.today()
-    prob_risk_off  = float(regime_row[1]) if regime_row else 0.0
-    prob_stagflat  = float(regime_row[2]) if regime_row else 0.0
+    as_of = hmm_row[0] if hmm_row else date.today()
+    if hmm_row:
+        _, _, prob_bear, _, prob_stagflation = resolve_hmm_probs(
+            hmm_row[1], hmm_row[2], hmm_row[3], hmm_row[4]
+        )
+    else:
+        prob_bear = 0.0
+        prob_stagflation = 0.0
+
+    # Latest recession probability
+    rec_row = db.execute("""
+        SELECT recession_prob
+        FROM recession_predictions
+        ORDER BY date DESC
+        LIMIT 1
+    """).fetchone()
+    recession_prob = float(rec_row[0] or 0) if rec_row else 0.0
 
     # Latest vol forecast (21d)
     vol_row = db.execute("""
@@ -477,7 +532,6 @@ def get_decision(
         ORDER BY date DESC
         LIMIT 1
     """).fetchone()
-    usdpln_point = float(fx_row[0]) if fx_row else None
     usdpln_upper = float(fx_row[1]) if fx_row else None
 
     # Current macro snapshot
@@ -493,8 +547,10 @@ def get_decision(
     spread_10y_3m  = float(macro_row[2]) if macro_row and macro_row[2] is not None else None
 
     action, confidence, reasons, flags = _make_decision(
-        prob_risk_off    = prob_risk_off,
-        prob_stagflation = prob_stagflat,
+        prob_bear        = prob_bear,
+        prob_stagflation = prob_stagflation,
+        recession_prob   = recession_prob,
+        spread_10y_3m    = spread_10y_3m,
         vol_21d          = vol_21d,
         usdpln_current   = usdpln_current,
         usdpln_upper_21d = usdpln_upper,
@@ -508,8 +564,9 @@ def get_decision(
         reasons    = reasons,
         flags      = flags,
         signals    = SignalSummary(
-            prob_risk_off    = prob_risk_off,
-            prob_stagflation = prob_stagflat,
+            prob_bear        = prob_bear,
+            prob_stagflation = prob_stagflation,
+            recession_prob   = recession_prob,
             vol_21d_forecast = vol_21d,
             usdpln_current   = usdpln_current,
             usdpln_upper_21d = usdpln_upper,

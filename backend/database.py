@@ -149,6 +149,42 @@ if DB_URL:
         raw = _get_pool().getconn()
         try:
             cur = raw.cursor()
+            # Drop the old circular LightGBM regime table (idempotent)
+            cur.execute("DROP TABLE IF EXISTS regime_predictions")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS regime_duration_stats (
+                    regime              TEXT        NOT NULL,
+                    duration_months     INTEGER     NOT NULL,
+                    km_survival         DOUBLE PRECISION,
+                    km_survival_lower   DOUBLE PRECISION,
+                    km_survival_upper   DOUBLE PRECISION,
+                    n_at_risk           INTEGER,
+                    n_events            INTEGER,
+                    computed_at         TIMESTAMPTZ DEFAULT now(),
+                    PRIMARY KEY (regime, duration_months)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS correlation_stats (
+                    computed_date   DATE        NOT NULL,
+                    regime          TEXT,
+                    asset_pair      TEXT        NOT NULL,
+                    window_days     INTEGER     NOT NULL,
+                    correlation     DOUBLE PRECISION,
+                    computed_at     TIMESTAMPTZ DEFAULT now(),
+                    PRIMARY KEY (computed_date, asset_pair, window_days)
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS diversification_index (
+                    computed_date   DATE        PRIMARY KEY,
+                    regime          TEXT,
+                    div_index       DOUBLE PRECISION,
+                    pc1_explained   DOUBLE PRECISION,
+                    n_assets        INTEGER,
+                    computed_at     TIMESTAMPTZ DEFAULT now()
+                )
+            """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS chat_history (
                     id         SERIAL PRIMARY KEY,

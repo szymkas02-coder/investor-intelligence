@@ -10,6 +10,10 @@ import {
 import client from '../api/client'
 
 const REGIME_COLOR = {
+  bull:          '#22c55e',
+  consolidation: '#3b82f6',
+  bear:          '#ef4444',
+  // legacy labels from old LightGBM model — kept for any historical dot rendering
   risk_on:     '#22c55e',
   risk_off:    '#ef4444',
   stagflation: '#f97316',
@@ -163,8 +167,12 @@ export default function History() {
   const riskRows   = (riskData?.rows  ?? []).map(r => ({ ...r, hy_spread_pct: r.hy_spread }))
   const merged     = mergeOverlay(priceRows, regimeRows)
 
-  // Regime labels use translation keys
+  // Regime labels — HMM states
   const REGIME_LABEL = {
+    bull:          t('signals.bull'),
+    consolidation: t('signals.consolidation'),
+    bear:          t('signals.bear'),
+    // legacy keys for dot colouring if old data still present
     risk_on:     t('history.riskOn'),
     risk_off:    t('history.riskOff'),
     stagflation: t('history.stagflation'),
@@ -267,7 +275,7 @@ export default function History() {
         )}
       </div>
 
-      {/* Regime probability stacked */}
+      {/* Regime probability stacked (HMM) */}
       <div className="card">
         <SectionHeader title={t('history.regimeProb')} subtitle={t('history.regimeProbSubtitle')} />
         {rl ? <Placeholder loading /> : re ? <Placeholder error /> : !regimeRows.length ? <Placeholder /> : (
@@ -276,12 +284,12 @@ export default function History() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis {...makeXAxis(regimeRows, days)} />
               <YAxis tickFormatter={v => `${(v*100).toFixed(0)}%`} tick={{ fontSize: 11 }} domain={[0,1]} width={40} />
-              <Tooltip formatter={(v) => `${(v*100).toFixed(1)}%`} labelFormatter={l => l} />
+              <Tooltip formatter={(v) => v != null ? `${(v*100).toFixed(1)}%` : '—'} labelFormatter={l => l} />
               <Legend />
-              <Area type="monotone" dataKey="prob_risk_on"     name={t('history.riskOn')}     stackId="1" stroke={REGIME_COLOR.risk_on}     fill={REGIME_COLOR.risk_on}     fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_stagflation" name={t('history.stagflation')} stackId="1" stroke={REGIME_COLOR.stagflation} fill={REGIME_COLOR.stagflation} fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_risk_off"    name={t('history.riskOff')}    stackId="1" stroke={REGIME_COLOR.risk_off}    fill={REGIME_COLOR.risk_off}    fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_deflation"   name={t('history.deflation')}  stackId="1" stroke={REGIME_COLOR.deflation}   fill={REGIME_COLOR.deflation}   fillOpacity={0.75} />
+              <Area type="monotone" dataKey="prob_bull"          name={t('signals.bull')}          stackId="1" stroke={REGIME_COLOR.bull}          fill={REGIME_COLOR.bull}          fillOpacity={0.75} />
+              <Area type="monotone" dataKey="prob_consolidation" name={t('signals.consolidation')} stackId="1" stroke={REGIME_COLOR.consolidation} fill={REGIME_COLOR.consolidation} fillOpacity={0.75} />
+              <Area type="monotone" dataKey="prob_stagflation"   name={t('signals.stagflation')}   stackId="1" stroke={REGIME_COLOR.stagflation}   fill={REGIME_COLOR.stagflation}   fillOpacity={0.75} />
+              <Area type="monotone" dataKey="prob_bear"          name={t('signals.bear')}          stackId="1" stroke={REGIME_COLOR.bear}          fill={REGIME_COLOR.bear}          fillOpacity={0.75} />
             </AreaChart>
           </ResponsiveContainer>
         )}

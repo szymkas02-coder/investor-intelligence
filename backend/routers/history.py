@@ -112,23 +112,24 @@ def get_regime_history(
     days: int = Query(default=730, ge=30, le=MAX_DAYS),
 ):
     rows = db.execute(f"""
-        SELECT date, regime_pred, prob_risk_on, prob_risk_off,
-               prob_stagflation, prob_deflation
-        FROM regime_predictions
+        SELECT date, state_label, prob_bull, prob_bear, prob_consolidation
+        FROM hmm_predictions
         WHERE date >= (CURRENT_DATE - INTERVAL '{days} days')
         ORDER BY date ASC
     """).fetchall()
-    return _json({"rows": [
-        {
-            "date":             str(r[0]),
-            "regime":           r[1],
-            "prob_risk_on":     round(r[2], 4),
-            "prob_risk_off":    round(r[3], 4),
-            "prob_stagflation": round(r[4], 4),
-            "prob_deflation":   round(r[5], 4),
-        }
-        for r in rows
-    ]})
+    from backend.hmm_utils import resolve_hmm_probs
+    result = []
+    for r in rows:
+        state, p_bull, p_bear, p_cons, p_stag = resolve_hmm_probs(r[1], r[2], r[3], r[4])
+        result.append({
+            "date":               str(r[0]),
+            "regime":             state,
+            "prob_bull":          p_bull,
+            "prob_bear":          p_bear,
+            "prob_consolidation": p_cons,
+            "prob_stagflation":   p_stag,
+        })
+    return _json({"rows": result})
 
 
 @router.get("/macro")

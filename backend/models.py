@@ -18,12 +18,31 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 class RegimeSignal(BaseModel):
-    regime: str
-    prob_risk_on:     float
-    prob_risk_off:    float
-    prob_stagflation: float
-    prob_deflation:   float
-    model_version:    str
+    state:              str       # bull | bear | consolidation | stagflation (from HMM)
+    prob_bull:          float
+    prob_bear:          float
+    prob_consolidation: float
+    prob_stagflation:   float     # 4th HMM state: high-vol stress (high CAPE, neg returns)
+    model_version:      str
+
+
+class RegimeDurationSignal(BaseModel):
+    current_state:           Optional[str]
+    current_duration_months: Optional[int]
+    km_survival_at_current:  Optional[float]
+    km_survival_lower:       Optional[float]
+    km_survival_upper:       Optional[float]
+    median_duration:         Optional[int]
+    p25_duration:            Optional[int]
+    p75_duration:            Optional[int]
+
+
+class CorrelationSnapshot(BaseModel):
+    computed_date:          Optional[str]
+    regime:                 Optional[str]
+    diversification_index:  Optional[float]
+    pc1_explained:          Optional[float]
+    top_correlations:       list[dict]
 
 
 class VolatilitySignal(BaseModel):
@@ -65,11 +84,13 @@ class MacroSnapshot(BaseModel):
 
 
 class DashboardResponse(BaseModel):
-    as_of:        date
-    regime:       RegimeSignal
-    volatility:   list[VolatilitySignal]
-    fx:           list[FXSignal]
-    macro:        MacroSnapshot
+    as_of:            date
+    regime:           RegimeSignal
+    regime_duration:  Optional[RegimeDurationSignal]
+    correlation:      Optional[CorrelationSnapshot]
+    volatility:       list[VolatilitySignal]
+    fx:               list[FXSignal]
+    macro:            MacroSnapshot
 
 
 # ---------------------------------------------------------------------------
@@ -77,12 +98,12 @@ class DashboardResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RegimeHistoryRow(BaseModel):
-    date:             date
-    regime_pred:      str
-    prob_risk_on:     float
-    prob_risk_off:    float
-    prob_stagflation: float
-    prob_deflation:   float
+    date:               date
+    state:              str       # bull | bear | consolidation | stagflation
+    prob_bull:          float
+    prob_bear:          float
+    prob_consolidation: float
+    prob_stagflation:   float
 
 
 class RegimeHistoryResponse(BaseModel):

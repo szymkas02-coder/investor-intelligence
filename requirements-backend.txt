@@ -4,6 +4,8 @@ pandas>=2.2.0
 numpy>=1.26.0
 lightgbm>=4.3.0
 scikit-learn>=1.4.0
+lifelines>=0.27.0
+hmmlearn>=0.3.0
 
 # API
 fastapi>=0.111.0

@@ -261,24 +261,7 @@ CREATE TABLE IF NOT EXISTS regime_labels (
     notes           VARCHAR
 );
 
--- WHY: Regime predictions are append-only by (date, model_version) to enable
--- model comparison. If we only stored the latest prediction per date, we could
--- never answer "did model v2 outperform v1 during the 2022 drawdown?". Keeping
--- all model versions' predictions lets evaluate.py compute holdout metrics for
--- any version. The trade-off is storage growth, which is negligible for daily
--- data — even 20 years × 4 models is under 30k rows.
-
-CREATE TABLE IF NOT EXISTS regime_predictions (
-    date                DATE        NOT NULL,
-    model_version       VARCHAR     NOT NULL,
-    regime_pred         VARCHAR     NOT NULL,
-    prob_risk_on        DOUBLE,
-    prob_risk_off       DOUBLE,
-    prob_stagflation    DOUBLE,
-    prob_deflation      DOUBLE,
-    predicted_at        TIMESTAMPTZ DEFAULT now(),
-    PRIMARY KEY (date, model_version)
-);
+-- regime_predictions removed — circular LightGBM model replaced by KM survival analysis + HMM as primary signal
 
 -- WHY: Volatility forecasts store (date, model_version, ticker, horizon_days)
 -- because the same model may forecast multiple horizons (21d, 63d) and multiple
@@ -315,6 +298,37 @@ CREATE TABLE IF NOT EXISTS fx_forecasts (
     rate_upper      DOUBLE,                -- 90th percentile
     predicted_at    TIMESTAMPTZ DEFAULT now(),
     PRIMARY KEY (date, model_version, pair, horizon_days)
+);
+
+CREATE TABLE IF NOT EXISTS regime_duration_stats (
+    regime              VARCHAR     NOT NULL,
+    duration_months     INTEGER     NOT NULL,
+    km_survival         DOUBLE,
+    km_survival_lower   DOUBLE,
+    km_survival_upper   DOUBLE,
+    n_at_risk           INTEGER,
+    n_events            INTEGER,
+    computed_at         TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (regime, duration_months)
+);
+
+CREATE TABLE IF NOT EXISTS correlation_stats (
+    computed_date   DATE        NOT NULL,
+    regime          VARCHAR,
+    asset_pair      VARCHAR     NOT NULL,
+    window_days     INTEGER     NOT NULL,
+    correlation     DOUBLE,
+    computed_at     TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (computed_date, asset_pair, window_days)
+);
+
+CREATE TABLE IF NOT EXISTS diversification_index (
+    computed_date   DATE        PRIMARY KEY,
+    regime          VARCHAR,
+    div_index       DOUBLE,
+    pc1_explained   DOUBLE,
+    n_assets        INTEGER,
+    computed_at     TIMESTAMPTZ DEFAULT now()
 );
 
 -- WHY: model_eval_log records metrics (MAE, RMSE, accuracy) after each training

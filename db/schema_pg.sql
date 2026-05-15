@@ -177,17 +177,7 @@ CREATE TABLE IF NOT EXISTS regime_labels (
     notes           TEXT
 );
 
-CREATE TABLE IF NOT EXISTS regime_predictions (
-    date                DATE                NOT NULL,
-    model_version       TEXT                NOT NULL,
-    regime_pred         TEXT                NOT NULL,
-    prob_risk_on        DOUBLE PRECISION,
-    prob_risk_off       DOUBLE PRECISION,
-    prob_stagflation    DOUBLE PRECISION,
-    prob_deflation      DOUBLE PRECISION,
-    predicted_at        TIMESTAMPTZ         DEFAULT now(),
-    PRIMARY KEY (date, model_version)
-);
+-- regime_predictions removed — circular LightGBM model replaced by KM survival analysis + HMM as primary signal
 
 CREATE TABLE IF NOT EXISTS volatility_forecasts (
     date            DATE                NOT NULL,
@@ -243,6 +233,37 @@ CREATE TABLE IF NOT EXISTS recession_predictions (
     recession_pred  TEXT,
     predicted_at    TIMESTAMPTZ         DEFAULT now(),
     PRIMARY KEY (date, model_version)
+);
+
+CREATE TABLE IF NOT EXISTS regime_duration_stats (
+    regime              TEXT        NOT NULL,
+    duration_months     INTEGER     NOT NULL,
+    km_survival         DOUBLE PRECISION,
+    km_survival_lower   DOUBLE PRECISION,
+    km_survival_upper   DOUBLE PRECISION,
+    n_at_risk           INTEGER,
+    n_events            INTEGER,
+    computed_at         TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (regime, duration_months)
+);
+
+CREATE TABLE IF NOT EXISTS correlation_stats (
+    computed_date   DATE        NOT NULL,
+    regime          TEXT,
+    asset_pair      TEXT        NOT NULL,
+    window_days     INTEGER     NOT NULL,
+    correlation     DOUBLE PRECISION,
+    computed_at     TIMESTAMPTZ DEFAULT now(),
+    PRIMARY KEY (computed_date, asset_pair, window_days)
+);
+
+CREATE TABLE IF NOT EXISTS diversification_index (
+    computed_date   DATE        PRIMARY KEY,
+    regime          TEXT,
+    div_index       DOUBLE PRECISION,
+    pc1_explained   DOUBLE PRECISION,
+    n_assets        INTEGER,
+    computed_at     TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS model_eval_log (

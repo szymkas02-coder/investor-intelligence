@@ -20,6 +20,18 @@ The pipeline scripts use get_connection() from this file.
 import os
 from pathlib import Path
 
+# Auto-load .env so ml/ pipeline scripts pick up DATABASE_URL without needing
+# an explicit load_dotenv() call in every script.
+# Skip during pytest: conftest provides in-memory DuckDB; DATABASE_URL must stay
+# empty so PH stays '?' (DuckDB syntax) not '%s' (PostgreSQL syntax).
+import sys as _sys
+if "pytest" not in _sys.modules:
+    try:
+        from dotenv import load_dotenv as _load_dotenv
+        _load_dotenv(Path(__file__).parent.parent / ".env")
+    except ImportError:
+        pass
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 # Placeholder character for parameterised queries.
@@ -180,7 +192,8 @@ def verify_tables(conn) -> None:
     expected = [
         "raw_prices", "raw_macro", "raw_fx", "raw_sentiment",
         "raw_fundamentals", "raw_crypto", "raw_calendar_events", "raw_qc_log",
-        "daily_features", "regime_labels", "regime_predictions",
+        "daily_features", "regime_labels",
+        "regime_duration_stats", "correlation_stats", "diversification_index",
         "volatility_forecasts", "fx_forecasts", "model_eval_log",
         "users", "user_positions", "user_transactions", "ike_contributions",
         "user_preferences", "decision_log",

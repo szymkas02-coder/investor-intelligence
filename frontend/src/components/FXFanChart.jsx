@@ -37,6 +37,9 @@ export default function FXFanChart({ signals, current }) {
           )
         })}
       </div>
+      <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.75rem', fontStyle: 'italic' }}>
+        {t('components.fxMeeseRogoff')}
+      </p>
     </div>
   )
 }

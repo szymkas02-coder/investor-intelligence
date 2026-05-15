@@ -174,7 +174,23 @@ def run(skip_fundamentals: bool = False,
     )
 
     # ------------------------------------------------------------------
-    # 11. QC
+    # 11. Regime duration (Kaplan-Meier survival analysis)
+    # ------------------------------------------------------------------
+    from ml.regime_duration import compute as compute_regime_duration
+    results["regime_duration"] = run_step(
+        "Regime duration (KM)", compute_regime_duration
+    )
+
+    # ------------------------------------------------------------------
+    # 12. Correlation PCA (diversification index)
+    # ------------------------------------------------------------------
+    from ml.correlation_pca import compute as compute_correlation_pca
+    results["correlation_pca"] = run_step(
+        "Correlation PCA", compute_correlation_pca
+    )
+
+    # ------------------------------------------------------------------
+    # 13. QC
     # ------------------------------------------------------------------
     from processing.qc import run as run_qc
     results["qc"] = run_step(

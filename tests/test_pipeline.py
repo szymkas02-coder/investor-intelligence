@@ -84,6 +84,8 @@ def test_pipeline_summary_keys():
          mock.patch("processing.features.report", return_value=None), \
          mock.patch("db.init_db.get_connection") as mock_conn, \
          mock.patch("processing.labels.run", return_value={"total": 0, "distribution": {}}), \
+         mock.patch("ml.regime_duration.compute", return_value={"episodes": 0, "km_rows": 0}), \
+         mock.patch("ml.correlation_pca.compute", return_value={"pca_rows": 0}), \
          mock.patch("processing.qc.run", return_value={}):
 
         mock_conn.return_value.__enter__ = lambda s: s
@@ -96,7 +98,8 @@ def test_pipeline_summary_keys():
         results = run(skip_fundamentals=True)
 
     expected_keys = {"prices", "fx", "macro", "stooq", "ecb",
-                     "econdb", "sentiment", "fundamentals", "features", "labels", "qc"}
+                     "econdb", "sentiment", "fundamentals", "features", "labels",
+                     "regime_duration", "correlation_pca", "qc"}
     assert expected_keys == set(results.keys()), \
         f"Missing keys: {expected_keys - set(results.keys())}"
 
@@ -115,6 +118,8 @@ def test_fundamentals_skipped_when_flag_set():
          mock.patch("processing.features.report", return_value=None), \
          mock.patch("db.init_db.get_connection") as mock_conn, \
          mock.patch("processing.labels.run", return_value={"total": 0, "distribution": {}}), \
+         mock.patch("ml.regime_duration.compute", return_value={"episodes": 0, "km_rows": 0}), \
+         mock.patch("ml.correlation_pca.compute", return_value={"pca_rows": 0}), \
          mock.patch("processing.qc.run", return_value={}):
 
         mock_conn.return_value.execute = mock.Mock()

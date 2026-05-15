@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -61,6 +61,8 @@ export default function Decision() {
     queryFn:  () => fetchProjection(years, monthly),
   })
 
+  const [showDecDetail, setShowDecDetail] = useState(false)
+
   return (
     <div className="decision-page">
       <div className="card">
@@ -73,15 +75,20 @@ export default function Decision() {
           </div>
         ) : dec && (
           <>
-            <div className="action-badge" style={{ background: ACTION_COLOR[dec.action] }}>
-              {ACTION_ICON[dec.action]} {dec.action}
+            {/* Action + confidence */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <div className="action-badge" style={{ background: ACTION_COLOR[dec.action] }}>
+                {ACTION_ICON[dec.action]} {dec.action}
+              </div>
+              <span className="confidence-tag">{t('decision.confidence')}: {dec.confidence}</span>
             </div>
-            <span className="confidence-tag">{t('decision.confidence')}: {dec.confidence}</span>
 
+            {/* Plain-language reasons */}
             <ul className="reasons">
               {dec.reasons.map((r, i) => <li key={i}>{r}</li>)}
             </ul>
 
+            {/* FX flag if present */}
             {dec.flags.length > 0 && (
               <div className="flags">
                 <strong>{t('decision.flags')}:</strong>
@@ -89,14 +96,54 @@ export default function Decision() {
               </div>
             )}
 
-            <div className="signal-grid">
-              <div><span>{t('decision.riskOffProb')}</span><strong>{(dec.signals.prob_risk_off * 100).toFixed(0)}%</strong></div>
-              <div><span>{t('decision.stagflationProb')}</span><strong>{(dec.signals.prob_stagflation * 100).toFixed(0)}%</strong></div>
-              <div><span>{t('decision.vol21d')}</span><strong>{dec.signals.vol_21d_forecast != null ? (dec.signals.vol_21d_forecast * 100).toFixed(1) + '%' : '—'}</strong></div>
-              <div><span>{t('decision.usdplnNow')}</span><strong>{dec.signals.usdpln_current?.toFixed(4) ?? '—'}</strong></div>
-              <div><span>{t('decision.usdpln90th')}</span><strong>{dec.signals.usdpln_upper_21d?.toFixed(4) ?? '—'}</strong></div>
-              <div><span>{t('decision.usCpiYoy')}</span><strong>{dec.signals.cpi_us_yoy?.toFixed(1) ?? '—'}%</strong></div>
-            </div>
+            {/* Collapsible signal detail */}
+            <button
+              onClick={() => setShowDecDetail(d => !d)}
+              style={{
+                marginTop: '0.75rem', background: 'none', border: '1px solid #e2e8f0',
+                borderRadius: 6, padding: '0.3rem 0.75rem', fontSize: '0.8rem',
+                color: '#64748b', cursor: 'pointer',
+              }}
+            >
+              {t('decision.showDetail')} {showDecDetail ? '▲' : '▼'}
+            </button>
+
+            {showDecDetail && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <div className="signal-grid">
+                  <div>
+                    <span>{t('decision.hmmRegime')}</span>
+                    <strong style={{ color: dec.signals.prob_stagflation > 0.5 ? '#f97316' : dec.signals.prob_bear > 0.35 ? '#ef4444' : '#22c55e' }}>
+                      {dec.signals.prob_stagflation > 0.5
+                        ? t('signals.stagflation')
+                        : dec.signals.prob_bear > 0.35
+                        ? t('signals.bear')
+                        : t('signals.bull')}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{t('decision.recessionProb')}</span>
+                    <strong>{dec.signals.recession_prob != null ? (dec.signals.recession_prob * 100).toFixed(0) + '%' : '—'}</strong>
+                  </div>
+                  <div>
+                    <span>{t('decision.vol21d')}</span>
+                    <strong>{dec.signals.vol_21d_forecast != null ? (dec.signals.vol_21d_forecast * 100).toFixed(1) + '%' : '—'}</strong>
+                  </div>
+                  <div>
+                    <span>{t('decision.usdplnNow')}</span>
+                    <strong>{dec.signals.usdpln_current?.toFixed(4) ?? '—'}</strong>
+                  </div>
+                  <div>
+                    <span>{t('decision.usdpln90th')}</span>
+                    <strong>{dec.signals.usdpln_upper_21d?.toFixed(4) ?? '—'}</strong>
+                  </div>
+                  <div>
+                    <span>{t('decision.cpiUs')}</span>
+                    <strong>{dec.signals.cpi_us_yoy?.toFixed(1) ?? '—'}%</strong>
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -177,6 +224,9 @@ export default function Decision() {
             </ResponsiveContainer>
 
             <p className="proj-disclaimer">{t('decision.disclaimer')}</p>
+            <p className="proj-disclaimer" style={{ marginTop: '0.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
+              {t('decision.disclaimerEarnings')}
+            </p>
           </>
         )}
       </div>
