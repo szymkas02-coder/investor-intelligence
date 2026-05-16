@@ -14,7 +14,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_non_guest
 from backend.database import get_db, get_db_write
 
 logger = logging.getLogger(__name__)
@@ -163,6 +163,7 @@ def refresh_situation(
     db:      Annotated[object, Depends(get_db_write)],
     _user:   Annotated[str, Depends(get_current_user)],
 ):
+    require_non_guest(_user)
     """Manual refresh — rate-limited to once per 24h per type."""
     last = db.execute("""
         SELECT created_at FROM situation_updates

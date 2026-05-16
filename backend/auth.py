@@ -95,11 +95,21 @@ def verify_jwt(token: str) -> dict:
 
 DEV_MODE = not GOOGLE_CLIENT_ID   # True when env vars not set
 
+GUEST_USER_ID = "guest-user-001"
+
+
+def require_non_guest(user_id: str) -> str:
+    """Raise 403 if the caller is a guest user. Use as a guard on mutating endpoints."""
+    if user_id == GUEST_USER_ID:
+        raise HTTPException(status_code=403, detail="Guest access is read-only.")
+    return user_id
+
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     """
     Returns user_id from verified JWT.
-    In dev mode (no GOOGLE_CLIENT_ID set) returns a hardcoded dev user.
+    In local dev mode (no GOOGLE_CLIENT_ID) returns a hardcoded dev user.
+    In production, accepts a properly signed guest JWT issued by /auth/guest.
     """
     if DEV_MODE:
         return "dev-user-001"
@@ -117,6 +127,13 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
 # ---------------------------------------------------------------------------
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/guest")
+def guest_login():
+    """Issue a short-lived JWT for read-only guest access (no Google account needed)."""
+    token = create_jwt(GUEST_USER_ID, "guest")
+    return {"access_token": token}
 
 
 @router.get("/login")

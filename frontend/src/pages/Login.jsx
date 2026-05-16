@@ -1,9 +1,10 @@
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import client from '../api/client'
 
 export default function Login() {
-  const { user } = useAuth()
+  const { user, login } = useAuth()
   const { t } = useTranslation()
   if (user) return <Navigate to="/dashboard" replace />
 
@@ -11,9 +12,14 @@ export default function Login() {
     window.location.href = '/auth/login'
   }
 
-  function handleDevLogin() {
-    sessionStorage.setItem('access_token', 'dev-token')
-    window.location.href = '/dashboard'
+  async function handleDevLogin() {
+    try {
+      const res = await client.post('/auth/guest')
+      login(res.data.access_token)
+    } catch {
+      // fallback for local dev where backend may not need auth
+      login('dev-token')
+    }
   }
 
   return (

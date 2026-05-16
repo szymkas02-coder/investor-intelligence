@@ -20,7 +20,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
-from backend.auth import get_current_user
+from backend.auth import get_current_user, require_non_guest
 from backend.database import get_db, get_db_write
 from backend.models import (
     PortfolioResponse, Position,
@@ -138,6 +138,7 @@ def record_transaction(
     db:      Annotated[object, Depends(get_db_write)],
     user_id: Annotated[str, Depends(get_current_user)],
 ):
+    require_non_guest(user_id)
     tx_id = str(uuid.uuid4())
 
     # Ensure user exists
@@ -352,6 +353,7 @@ def delete_transaction(
     db:      Annotated[object, Depends(get_db_write)],
     user_id: Annotated[str, Depends(get_current_user)],
 ):
+    require_non_guest(user_id)
     row = db.execute(f"""
         SELECT ticker, type, shares, price_pln, account_type, date
         FROM user_transactions
@@ -423,6 +425,7 @@ def edit_transaction(
     db:      Annotated[object, Depends(get_db_write)],
     user_id: Annotated[str, Depends(get_current_user)],
 ):
+    require_non_guest(user_id)
     exists = db.execute(f"""
         SELECT 1 FROM user_transactions
         WHERE transaction_id = '{transaction_id}' AND user_id = '{user_id}'
@@ -519,6 +522,7 @@ def upload_transactions(
     user_id: Annotated[str, Depends(get_current_user)] = None,
 ):
     """Bulk-import transactions from an .xlsx file (same template as /portfolio/template)."""
+    require_non_guest(user_id)
     if not file.filename.endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Only .xlsx files are supported.")
 
@@ -710,6 +714,7 @@ async def upload_broker(
     """AI-assisted broker export import. Accepts any broker .xlsx or .csv format.
     First call (no sheet_name): returns available sheets.
     Second call (sheet_name set): parses that sheet with Gemini and returns preview."""
+    require_non_guest(user_id)
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     if not gemini_key:
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured.")
@@ -959,6 +964,7 @@ def confirm_broker_import(
     user_id: Annotated[str, Depends(get_current_user)] = None,
 ):
     """Commit a previously previewed broker import. Expects {transactions: [...]}."""
+    require_non_guest(user_id)
     rows = payload.get("transactions", [])
     if not rows:
         raise HTTPException(status_code=400, detail="No transactions provided.")
@@ -1104,6 +1110,7 @@ def delete_all_transactions(
     user_id: Annotated[str, Depends(get_current_user)],
 ):
     """Delete all transactions and positions for the current user."""
+    require_non_guest(user_id)
     db.execute("DELETE FROM user_transactions WHERE user_id = %s", [user_id])
     db.execute("DELETE FROM user_positions WHERE user_id = %s", [user_id])
     db.execute("DELETE FROM ike_contributions WHERE user_id = %s", [user_id])
@@ -1250,6 +1257,7 @@ def refresh_allocations(
     If iShares is unreachable the seed data remains unchanged.
     Returns {"updated": [...], "failed": [...], "skipped": [...], "skipped_rate_limit": bool}.
     """
+    require_non_guest(_user)
     import datetime as _dt
     import logging
     _log = logging.getLogger(__name__)
