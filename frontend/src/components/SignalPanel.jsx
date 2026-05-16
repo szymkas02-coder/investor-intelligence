@@ -60,6 +60,64 @@ function SignalCard({ title, summary, summaryColor, detail, infoText }) {
   )
 }
 
+function ValuationCard({ valuation: v, t }) {
+  const trailingPe  = v.trailing_pe
+  const cape        = v.cape
+  const eps5y       = v.eps_growth_5y
+  const epsHist     = v.eps_growth_hist_median
+  const epsAbove    = eps5y != null && epsHist != null && eps5y > epsHist
+
+  // Summary: is earnings growth above or below historical?
+  const epsSummary = eps5y == null ? '—'
+    : epsAbove
+    ? t('signals.epsGrowthAbove', { pct: (eps5y * 100).toFixed(1) })
+    : t('signals.epsGrowthBelow', { pct: (eps5y * 100).toFixed(1) })
+  const epsColor = epsAbove ? '#22c55e' : '#f97316'
+
+  return (
+    <SignalCard
+      title={t('signals.valuationTitle')}
+      summary={epsSummary}
+      summaryColor={epsColor}
+      infoText={t('signals.infoValuation')}
+      detail={
+        <div className="cape-band">
+          <div className="cape-band-row">
+            <span>{t('signals.trailingPe')}</span>
+            <strong style={{ color: trailingPe > 30 ? '#ef4444' : trailingPe > 20 ? '#f97316' : '#22c55e' }}>
+              {trailingPe ?? '—'}
+            </strong>
+          </div>
+          <div className="cape-band-row">
+            <span>CAPE (10y)</span>
+            <strong style={{ color: cape > 30 ? '#ef4444' : cape > 20 ? '#f97316' : '#22c55e' }}>
+              {cape ?? '—'}
+            </strong>
+          </div>
+          {v.pe_cape_gap != null && (
+            <div className="cape-band-row">
+              <span>{t('signals.peCapeGap')}</span>
+              <strong style={{ color: '#94a3b8' }}>{v.pe_cape_gap > 0 ? '+' : ''}{v.pe_cape_gap}</strong>
+            </div>
+          )}
+          {eps5y != null && (
+            <div className="cape-band-row">
+              <span>{t('signals.eps5yCagr')}</span>
+              <strong style={{ color: epsColor }}>{(eps5y * 100).toFixed(1)}%</strong>
+            </div>
+          )}
+          {epsHist != null && (
+            <div className="cape-band-row">
+              <span>{t('signals.epsHistMedian')}</span>
+              <strong style={{ color: '#94a3b8' }}>{(epsHist * 100).toFixed(1)}%</strong>
+            </div>
+          )}
+        </div>
+      }
+    />
+  )
+}
+
 function ProbBar({ label, value, color }) {
   if (value == null) return null
   const pct = (value * 100).toFixed(1)
@@ -87,7 +145,8 @@ export default function SignalPanel() {
   if (!data)     return null
 
   const { hmm_regime: hmm, recession, cape_10y: cape,
-          regime_duration, signal_agreement: agreement,
+          regime_duration, valuation,
+          signal_agreement: agreement,
           bearish_count, total_signals } = data
 
   const agColor = AGREEMENT_COLOR[agreement] ?? '#6b7280'
@@ -212,6 +271,11 @@ export default function SignalPanel() {
               </div>
             }
           />
+        )}
+
+        {/* Valuation context: trailing P/E vs CAPE + EPS growth */}
+        {valuation && (
+          <ValuationCard valuation={valuation} t={t} />
         )}
 
       </div>

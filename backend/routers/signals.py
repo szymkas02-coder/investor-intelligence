@@ -9,6 +9,7 @@ HMM is now the primary regime signal (genuinely unsupervised, 1871–2026 Shille
 """
 
 import math
+from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, Depends
 from typing import Annotated
@@ -16,6 +17,42 @@ from datetime import date
 
 from backend.database import get_db
 from backend.hmm_utils import resolve_hmm_probs
+
+_SHILLER_CSV = Path(__file__).parent.parent.parent / "shiller.csv"
+
+
+def _compute_valuation() -> dict | None:
+    """Compute trailing P/E and 5Y EPS CAGR from shiller.csv."""
+    try:
+        df = pd.read_csv(_SHILLER_CSV)
+        df["Date"] = pd.to_datetime(df["Date"])
+        df = df.sort_values("Date").dropna(subset=["SP500", "Earnings", "PE10"])
+        latest = df.iloc[-1]
+
+        trailing_pe = latest["SP500"] / latest["Earnings"] if latest["Earnings"] > 0 else None
+        cape = round(float(latest["PE10"]), 1)
+
+        # 5Y EPS CAGR (60 months)
+        df_sorted = df.reset_index(drop=True)
+        eps_now = latest["Earnings"]
+        eps_5y = df_sorted.iloc[-61]["Earnings"] if len(df_sorted) > 61 else None
+        cagr_5y = ((eps_now / eps_5y) ** (1 / 5) - 1) if eps_5y and eps_5y > 0 else None
+
+        # Historical median 5Y CAGR since 1950
+        hist = df_sorted[df_sorted["Date"].dt.year >= 1950].copy()
+        hist["cagr"] = (hist["Earnings"] / hist["Earnings"].shift(60)) ** (1 / 5) - 1
+        hist_median = float(hist["cagr"].median()) if not hist["cagr"].isna().all() else None
+
+        return {
+            "date":              str(latest["Date"].date()),
+            "trailing_pe":       round(trailing_pe, 1) if trailing_pe else None,
+            "cape":              cape,
+            "pe_cape_gap":       round(cape - trailing_pe, 1) if trailing_pe else None,
+            "eps_growth_5y":     round(cagr_5y, 4) if cagr_5y is not None else None,
+            "eps_growth_hist_median": round(hist_median, 4) if hist_median is not None else None,
+        }
+    except Exception:
+        return None
 
 router = APIRouter(prefix="/signals", tags=["signals"])
 
@@ -167,6 +204,7 @@ def get_signals(db: Annotated[object, Depends(get_db)]):
         "recession":        recession,
         "cape_10y":         cape,
         "regime_duration":  regime_duration,
+        "valuation":        _compute_valuation(),
         "signal_agreement": agreement,
         "bearish_count":    bearish_signals,
         "total_signals":    total_signals,
