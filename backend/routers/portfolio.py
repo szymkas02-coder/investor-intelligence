@@ -155,23 +155,15 @@ def record_transaction(
         if tx.account_type == "regular":
             raise HTTPException(status_code=400, detail="Deposits only apply to IKE or IKZE accounts")
 
-    # Insert transaction
-    ticker_val = f"'{tx.ticker}'" if tx.ticker else 'NULL'
-    shares_val = str(tx.shares) if tx.shares is not None else 'NULL'
-    # For deposits, store amount_pln in price_pln column so delete reversal can read it
-    price_val  = str(tx.amount_pln) if tx.type == "deposit" else (str(tx.price_pln) if tx.price_pln is not None else 'NULL')
-    db.execute(f"""
+    # Insert transaction — use parameterized values for all user-supplied strings
+    price_val = tx.amount_pln if tx.type == "deposit" else tx.price_pln
+    db.execute("""
         INSERT INTO user_transactions
             (transaction_id, user_id, ticker, date, type,
              shares, price_pln, usdpln_rate, account_type, notes)
-        VALUES (
-            '{tx_id}', '{user_id}', {ticker_val}, '{tx.date}', '{tx.type}',
-            {shares_val}, {price_val},
-            {tx.usdpln_rate if tx.usdpln_rate else 'NULL'},
-            '{tx.account_type}',
-            {'NULL' if not tx.notes else f"'{tx.notes}'"}
-        )
-    """)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, [tx_id, user_id, tx.ticker, str(tx.date), tx.type,
+          tx.shares, price_val, tx.usdpln_rate, tx.account_type, tx.notes])
 
     # Update positions (upsert)
     if tx.type == "deposit":
@@ -433,14 +425,15 @@ def edit_transaction(
     if not exists:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    db.execute(f"""
+    db.execute("""
         UPDATE user_transactions
-        SET ticker = '{tx.ticker}', date = '{tx.date}', type = '{tx.type}',
-            shares = {tx.shares}, price_pln = {tx.price_pln},
-            account_type = '{tx.account_type}',
-            notes = {'NULL' if not tx.notes else f"'{tx.notes}'"}
-        WHERE transaction_id = '{transaction_id}' AND user_id = '{user_id}'
-    """)
+        SET ticker = %s, date = %s, type = %s,
+            shares = %s, price_pln = %s,
+            account_type = %s, notes = %s
+        WHERE transaction_id = %s AND user_id = %s
+    """, [tx.ticker, str(tx.date), tx.type,
+          tx.shares, tx.price_pln, tx.account_type, tx.notes,
+          transaction_id, user_id])
 
     # Rebuild positions from scratch for this ticker+account_type
     _rebuild_position(db, user_id, tx.ticker, tx.account_type)

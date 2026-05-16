@@ -133,9 +133,9 @@ def walk_forward_cv(df: pd.DataFrame, window_years: int = 20):
         if train["usrec"].sum() < 50:
             continue
 
-        X_tr = train[FEATURES].fillna(method="ffill").fillna(0).values
+        X_tr = train[FEATURES].ffill().fillna(0).values
         y_tr = train["usrec"].astype(int).values
-        X_te = test[FEATURES].fillna(method="ffill").fillna(0).values
+        X_te = test[FEATURES].ffill().fillna(0).values
         y_te = test["usrec"].astype(int).values
 
         scale = StandardScaler()
@@ -178,7 +178,7 @@ def train():
 
     # Fit final model on all available data
     print("\nFitting final model on full history...")
-    X = df[FEATURES].fillna(method="ffill").fillna(0).values
+    X = df[FEATURES].ffill().fillna(0).values
     y = df["usrec"].astype(int).values
 
     scaler = StandardScaler()
@@ -251,7 +251,7 @@ def predict():
     con.close()
 
     df["date"] = pd.to_datetime(df["date"])
-    X = df[features].fillna(method="ffill").fillna(0).values
+    X = df[features].ffill().fillna(0).values
     X_s = scaler.transform(X)
 
     probs = model.predict_proba(X_s)[:, 1]
