@@ -71,7 +71,7 @@ def get_connection(db_path: Path = DB_PATH):
                 cur = self._conn.cursor()
                 cur.execute(sql, params) if params else cur.execute(sql)
                 self._last_cur = cur
-                return cur
+                return self  # return self so .df()/.fetchall()/.fetchone() chain works
 
             def executemany(self, sql, params_list):
                 cur = self._conn.cursor()
@@ -84,6 +84,12 @@ def get_connection(db_path: Path = DB_PATH):
 
             def fetchone(self):
                 return self._last_cur.fetchone()
+
+            def df(self):
+                """Return last query result as a pandas DataFrame (mirrors DuckDB .df())."""
+                import pandas as pd
+                cols = [d[0] for d in self._last_cur.description]
+                return pd.DataFrame(self._last_cur.fetchall(), columns=cols)
 
             def commit(self):
                 self._conn.commit()

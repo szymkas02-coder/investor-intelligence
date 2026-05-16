@@ -413,6 +413,56 @@ def build_features(conn=None) -> None:
         WHERE fed_funds_rate IS NOT NULL AND nbp_rate IS NOT NULL
     """, "Rate + CPI differentials")
 
+    # Leading indicators for recession model (forward-fill from raw_macro)
+    leading_fills = [
+        ("sahm_indicator",  "SAHMREALTIME", "fred"),
+        ("initial_claims",  "ICSA",         "fred"),
+        ("housing_permits", "PERMIT",        "fred"),
+    ]
+    for feature_col, series_id, source in leading_fills:
+        run_sql(conn, f"""
+            UPDATE daily_features
+            SET {feature_col} = m.value
+            FROM (
+                SELECT df.date AS spine_date, m.value
+                FROM daily_features df
+                JOIN raw_macro m
+                  ON m.series_id = '{series_id}' AND m.source = '{source}'
+                 AND m.date = (
+                     SELECT MAX(m2.date) FROM raw_macro m2
+                     WHERE m2.series_id = '{series_id}' AND m2.source = '{source}'
+                       AND m2.date <= df.date
+                 )
+            ) m
+            WHERE daily_features.date = m.spine_date
+        """, f"ffill {feature_col}")
+
+    # INDPRO: industrial production YoY % change (index level → compute YoY)
+    run_sql(conn, """
+        UPDATE daily_features
+        SET indpro = curr.yoy
+        FROM (
+            SELECT df.date AS spine_date,
+                   (curr_val.value / prev_val.value - 1.0) * 100 AS yoy
+            FROM daily_features df
+            JOIN raw_macro curr_val
+              ON curr_val.series_id = 'INDPRO' AND curr_val.source = 'fred'
+             AND curr_val.date = (
+                 SELECT MAX(m.date) FROM raw_macro m
+                 WHERE m.series_id = 'INDPRO' AND m.source = 'fred' AND m.date <= df.date
+             )
+            JOIN raw_macro prev_val
+              ON prev_val.series_id = 'INDPRO' AND prev_val.source = 'fred'
+             AND prev_val.date = (
+                 SELECT MAX(m.date) FROM raw_macro m
+                 WHERE m.series_id = 'INDPRO' AND m.source = 'fred'
+                   AND m.date <= df.date - INTERVAL '12 months'
+             )
+            WHERE curr_val.value > 0 AND prev_val.value > 0
+        ) curr
+        WHERE daily_features.date = curr.spine_date
+    """, "ffill indpro YoY")
+
     # GDP (quarterly → daily ffill)
     run_sql(conn, """
         UPDATE daily_features

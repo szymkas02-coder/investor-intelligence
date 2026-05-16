@@ -137,13 +137,15 @@
     "infoRecession": "A LightGBM model computes the probability of US recession using leading indicators: yield curve slope (10Y–3M spread), VIX, unemployment, Fed rate, inflation. Trained on official NBER recession dates (1960–2024). Limitation: NBER declares recessions with significant delay (up to a year), so the model may have learned to recognise recessions after the fact. 0% risk means no indicator currently signals an active US recession.",
     "infoCape": "CAPE (Cyclically Adjusted P/E) is the stock price divided by 10-year average earnings, smoothing out business cycle fluctuations. Developed by Prof. Robert Shiller (Nobel Prize 2013). Data: 145 years of S&P 500 history (Shiller 1871–2026). The model estimates expected 10-year real return based on current CAPE. CAPE=39 is ~90th historical percentile — stocks were more expensive only ~10% of the time. Limitation: CAPE does not account for earnings growth — if margins and profits have permanently increased (e.g. through AI/technology), historical comparisons may be overly pessimistic.",
     "valuationTitle": "Valuation context",
-    "epsGrowthAbove": "Earnings growing faster than history: +{{pct}}%/yr (5Y)",
-    "epsGrowthBelow": "Earnings growing slower than history: {{pct}}%/yr (5Y)",
-    "trailingPe": "Trailing P/E (TTM)",
-    "peCapeGap": "CAPE premium over P/E",
+    "valuationSummary": "Global CAPE: {{gcape}} · earnings {{dir}} history",
+    "epsAboveShort": "above",
+    "epsBelowShort": "below",
+    "globalCape": "Global CAPE (VWCE)",
+    "usCape": "US CAPE (S&P 500)",
+    "trailingPe": "Trailing P/E TTM (US)",
     "eps5yCagr": "EPS growth (5Y CAGR)",
     "epsHistMedian": "Historical median (1950+)",
-    "infoValuation": "Compares CAPE to current trailing P/E and earnings growth. CAPE=39 looks expensive, but trailing P/E (31.7) is lower — CAPE uses 10-year averaged earnings, which includes COVID (2020) when earnings were near zero. The 5-year EPS growth rate (+9.7%/yr) is well above the historical median (6.3%/yr). If this higher growth persists (AI, technology), CAPE may overstate risk. If it reverts, historical comparisons remain valid. Source: Shiller 1871–2026."
+    "infoValuation": "Global CAPE = 60% US CAPE + 40% estimated ex-US CAPE (~15; Developed ex-US ~16, EM ~13, per Research Affiliates 2024). VWCE is a global fund, so US CAPE (39) overstates risk — after including cheaper European and EM markets the portfolio CAPE drops to ~29. Trailing P/E (32) is lower than CAPE because CAPE uses 10-year averaged earnings including COVID (2020). The 5Y EPS growth rate (+9.7%/yr) exceeds the historical median (6.3%/yr); if driven by structural changes (AI, margins), CAPE may be too pessimistic."
   },
   "decision": {
     "title": "Monthly Recommendation",

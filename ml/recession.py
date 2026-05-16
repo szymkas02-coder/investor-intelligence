@@ -36,6 +36,9 @@ warnings.filterwarnings("ignore")
 ROOT     = Path(__file__).parent.parent
 PKL_PATH = ROOT / "models" / "recession.pkl"
 
+sys.path.insert(0, str(ROOT))
+from db.init_db import get_connection, PH
+
 FEATURES = [
     "spread_10y_3m",    # Estrella & Mishkin — best single predictor, 8-12M lead
     "spread_10y_2y",    # complementary yield curve signal
@@ -45,6 +48,17 @@ FEATURES = [
     "fed_funds_rate",   # monetary tightening
     "cpi_us_yoy",       # inflation pressure
     "usdpln_vol_21d",   # PLN vol as global risk-off proxy
+    # Real-time leading indicators (reduce look-ahead bias vs NBER lag)
+    "sahm_indicator",   # Sahm rule — real-time, no revision lag
+    "initial_claims",   # Initial jobless claims — weekly, 4-6W lead
+    "housing_permits",  # Housing permits — Conference Board LEI component
+    "indpro",           # Industrial production YoY — LEI component
+]
+
+# Original 8 features — used if new LEI columns not yet populated
+_FEATURES_LEGACY = [
+    "spread_10y_3m", "spread_10y_2y", "vix_close", "acwi_ret_63d",
+    "unemployment_us", "fed_funds_rate", "cpi_us_yoy", "usdpln_vol_21d",
 ]
 
 MIN_TRAIN_YEARS = 20   # sliding window minimum
@@ -55,9 +69,17 @@ MIN_TRAIN_YEARS = 20   # sliding window minimum
 def load_data() -> pd.DataFrame:
     con = get_connection()
 
-    # Daily features (forward-fill monthly macro into daily)
+    # Check which columns exist — new LEI columns may not be populated yet
+    existing = {r[0] for r in con.execute(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = 'daily_features'"
+    ).fetchall()}
+    features = [f for f in FEATURES if f in existing]
+    if len(features) < len(FEATURES):
+        missing = set(FEATURES) - set(features)
+        print(f"  Note: {len(missing)} feature(s) not yet in DB, using available: {missing}")
+
     df = con.execute(f"""
-        SELECT date, {', '.join(FEATURES)}
+        SELECT date, {', '.join(features)}
         FROM daily_features
         ORDER BY date
     """).df()
@@ -77,7 +99,12 @@ def load_data() -> pd.DataFrame:
     df = df.merge(usrec, on="date", how="left")
     df["usrec"] = df["usrec"].ffill()
 
-    df = df.dropna(subset=["usrec"] + FEATURES[:4])  # need at least yield curve + VIX
+    # Add any missing LEI columns as NaN (model will fill with 0)
+    for f in FEATURES:
+        if f not in df.columns:
+            df[f] = np.nan
+
+    df = df.dropna(subset=["usrec"] + _FEATURES_LEGACY[:4])
     df = df.sort_values("date").reset_index(drop=True)
     print(f"Dataset: {len(df)} daily rows, {df['date'].min().date()} - {df['date'].max().date()}")
     print(f"Recession days: {df['usrec'].sum():.0f} ({df['usrec'].mean()*100:.1f}%)")
@@ -189,15 +216,15 @@ def _write_predictions(df: pd.DataFrame):
     con.execute(f"DELETE FROM recession_predictions WHERE model_version = '{version}'")
 
     for _, row in df.iterrows():
-        con.execute("""
+        con.execute(f"""
             INSERT INTO recession_predictions
                 (date, model_version, recession_prob, recession_pred)
-            VALUES (?, ?, ?, ?)
+            VALUES ({PH}, {PH}, {PH}, {PH})
             ON CONFLICT (date, model_version) DO UPDATE SET
                 recession_prob = excluded.recession_prob,
                 recession_pred = excluded.recession_pred
-        """, [row["date"].date(), version,
-              float(row["recession_prob"]), bool(row["recession_pred"])])
+        """, [row["date"].date() if hasattr(row["date"], "date") else row["date"],
+              version, float(row["recession_prob"]), bool(row["recession_pred"])])
 
     con.commit()
     con.close()

@@ -21,8 +21,15 @@ from backend.hmm_utils import resolve_hmm_probs
 _SHILLER_CSV = Path(__file__).parent.parent.parent / "shiller.csv"
 
 
+_VWCE_US_WEIGHT    = 0.60   # VWCE geographic split (iShares factsheet 2024)
+_VWCE_EXUS_WEIGHT  = 0.40
+# Ex-US blended CAPE: ~0.75 * Developed_exUS(16) + 0.25 * EM(13) ≈ 15
+# Source: Research Affiliates / StarCapital country CAPE estimates, 2024
+_EXUS_CAPE_ESTIMATE = 15.0
+
+
 def _compute_valuation() -> dict | None:
-    """Compute trailing P/E and 5Y EPS CAGR from shiller.csv."""
+    """Compute trailing P/E, 5Y EPS CAGR, and VWCE-weighted global CAPE from shiller.csv."""
     try:
         df = pd.read_csv(_SHILLER_CSV)
         df["Date"] = pd.to_datetime(df["Date"])
@@ -30,7 +37,12 @@ def _compute_valuation() -> dict | None:
         latest = df.iloc[-1]
 
         trailing_pe = latest["SP500"] / latest["Earnings"] if latest["Earnings"] > 0 else None
-        cape = round(float(latest["PE10"]), 1)
+        us_cape = round(float(latest["PE10"]), 1)
+
+        # VWCE-weighted global CAPE: 60% US + 40% blended ex-US estimate
+        global_cape = round(
+            _VWCE_US_WEIGHT * us_cape + _VWCE_EXUS_WEIGHT * _EXUS_CAPE_ESTIMATE, 1
+        )
 
         # 5Y EPS CAGR (60 months)
         df_sorted = df.reset_index(drop=True)
@@ -44,11 +56,12 @@ def _compute_valuation() -> dict | None:
         hist_median = float(hist["cagr"].median()) if not hist["cagr"].isna().all() else None
 
         return {
-            "date":              str(latest["Date"].date()),
-            "trailing_pe":       round(trailing_pe, 1) if trailing_pe else None,
-            "cape":              cape,
-            "pe_cape_gap":       round(cape - trailing_pe, 1) if trailing_pe else None,
-            "eps_growth_5y":     round(cagr_5y, 4) if cagr_5y is not None else None,
+            "date":                   str(latest["Date"].date()),
+            "trailing_pe":            round(trailing_pe, 1) if trailing_pe else None,
+            "us_cape":                us_cape,
+            "global_cape":            global_cape,
+            "exus_cape_estimate":     _EXUS_CAPE_ESTIMATE,
+            "eps_growth_5y":          round(cagr_5y, 4) if cagr_5y is not None else None,
             "eps_growth_hist_median": round(hist_median, 4) if hist_median is not None else None,
         }
     except Exception:

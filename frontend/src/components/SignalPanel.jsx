@@ -62,48 +62,49 @@ function SignalCard({ title, summary, summaryColor, detail, infoText }) {
 
 function ValuationCard({ valuation: v, t }) {
   const trailingPe  = v.trailing_pe
-  const cape        = v.cape
+  const usCape      = v.us_cape
+  const globalCape  = v.global_cape
   const eps5y       = v.eps_growth_5y
   const epsHist     = v.eps_growth_hist_median
   const epsAbove    = eps5y != null && epsHist != null && eps5y > epsHist
 
-  // Summary: is earnings growth above or below historical?
-  const epsSummary = eps5y == null ? '—'
-    : epsAbove
-    ? t('signals.epsGrowthAbove', { pct: (eps5y * 100).toFixed(1) })
-    : t('signals.epsGrowthBelow', { pct: (eps5y * 100).toFixed(1) })
-  const epsColor = epsAbove ? '#22c55e' : '#f97316'
+  const capeColor = (c) => c > 30 ? '#ef4444' : c > 20 ? '#f97316' : '#22c55e'
+
+  // Summary line: global CAPE + EPS growth direction
+  const summary = globalCape != null
+    ? t('signals.valuationSummary', {
+        gcape: globalCape,
+        dir: epsAbove ? t('signals.epsAboveShort') : t('signals.epsBelowShort'),
+      })
+    : '—'
+  const summaryColor = globalCape > 28 ? '#ef4444' : globalCape > 22 ? '#f97316' : '#22c55e'
 
   return (
     <SignalCard
       title={t('signals.valuationTitle')}
-      summary={epsSummary}
-      summaryColor={epsColor}
+      summary={summary}
+      summaryColor={summaryColor}
       infoText={t('signals.infoValuation')}
       detail={
         <div className="cape-band">
           <div className="cape-band-row">
-            <span>{t('signals.trailingPe')}</span>
-            <strong style={{ color: trailingPe > 30 ? '#ef4444' : trailingPe > 20 ? '#f97316' : '#22c55e' }}>
-              {trailingPe ?? '—'}
-            </strong>
+            <span>{t('signals.globalCape')}</span>
+            <strong style={{ color: capeColor(globalCape) }}>{globalCape ?? '—'}</strong>
           </div>
           <div className="cape-band-row">
-            <span>CAPE (10y)</span>
-            <strong style={{ color: cape > 30 ? '#ef4444' : cape > 20 ? '#f97316' : '#22c55e' }}>
-              {cape ?? '—'}
-            </strong>
+            <span>{t('signals.usCape')}</span>
+            <strong style={{ color: capeColor(usCape) }}>{usCape ?? '—'}</strong>
           </div>
-          {v.pe_cape_gap != null && (
-            <div className="cape-band-row">
-              <span>{t('signals.peCapeGap')}</span>
-              <strong style={{ color: '#94a3b8' }}>{v.pe_cape_gap > 0 ? '+' : ''}{v.pe_cape_gap}</strong>
-            </div>
-          )}
+          <div className="cape-band-row">
+            <span>{t('signals.trailingPe')}</span>
+            <strong style={{ color: capeColor(trailingPe) }}>{trailingPe ?? '—'}</strong>
+          </div>
           {eps5y != null && (
             <div className="cape-band-row">
               <span>{t('signals.eps5yCagr')}</span>
-              <strong style={{ color: epsColor }}>{(eps5y * 100).toFixed(1)}%</strong>
+              <strong style={{ color: epsAbove ? '#22c55e' : '#f97316' }}>
+                {(eps5y * 100).toFixed(1)}%
+              </strong>
             </div>
           )}
           {epsHist != null && (

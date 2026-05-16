@@ -235,6 +235,12 @@ CREATE TABLE IF NOT EXISTS daily_features (
     sp500_pe_ratio          DOUBLE,
     sp500_earnings_yield    DOUBLE,
 
+    -- Leading indicators for recession model
+    sahm_indicator          DOUBLE,
+    initial_claims          DOUBLE,
+    housing_permits         DOUBLE,
+    indpro                  DOUBLE,
+
     -- Derived (computed from above — stored to avoid re-computation in ML)
     acwi_pln_ret_1d         DOUBLE,
     acwi_pln_ret_21d        DOUBLE,

@@ -161,6 +161,11 @@ CREATE TABLE IF NOT EXISTS daily_features (
     sp500_pe_ratio          DOUBLE PRECISION,
     sp500_earnings_yield    DOUBLE PRECISION,
 
+    sahm_indicator          DOUBLE PRECISION,
+    initial_claims          DOUBLE PRECISION,
+    housing_permits         DOUBLE PRECISION,
+    indpro                  DOUBLE PRECISION,
+
     acwi_pln_ret_1d         DOUBLE PRECISION,
     acwi_pln_ret_21d        DOUBLE PRECISION,
     yield_curve_inverted    BOOLEAN,

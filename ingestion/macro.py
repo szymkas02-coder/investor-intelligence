@@ -58,6 +58,12 @@ SERIES = {
         "FEDFUNDS",        # Fed Funds Rate
         "UMCSENT",         # U Michigan Consumer Sentiment
         "IRSTCB01PLM156N", # Poland NBP Central Bank Rate (OECD via FRED)
+        "SAHMREALTIME",    # Real-time Sahm Rule indicator (no look-ahead bias)
+        "PERMIT",          # Housing permits — Conference Board LEI component
+        "INDPRO",          # Industrial production index — LEI component
+    ],
+    "weekly": [
+        "ICSA",            # Initial jobless claims — high-frequency leading indicator
     ],
     "quarterly": [
         "GDP",          # US GDP (level)

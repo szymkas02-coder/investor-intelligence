@@ -224,6 +224,13 @@ if DB_URL:
                     ALTER TABLE user_transactions ALTER COLUMN price_pln DROP NOT NULL;
                 EXCEPTION WHEN others THEN NULL; END $$;
             """)
+            # Leading indicator columns for improved recession model
+            for col in ["sahm_indicator", "initial_claims", "housing_permits", "indpro"]:
+                cur.execute(f"""
+                    DO $$ BEGIN
+                        ALTER TABLE daily_features ADD COLUMN {col} DOUBLE PRECISION;
+                    EXCEPTION WHEN duplicate_column THEN NULL; END $$;
+                """)
             raw.commit()
             # Seed allocation data — uses _PgAdapter so it can reuse the same pattern
             from backend.database import _PgAdapter
