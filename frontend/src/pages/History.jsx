@@ -12,12 +12,16 @@ import client from '../api/client'
 const REGIME_COLOR = {
   bull:          '#22c55e',
   consolidation: '#3b82f6',
+  stagflation:   '#f97316',
   bear:          '#ef4444',
-  // legacy labels from old LightGBM model — kept for any historical dot rendering
-  risk_on:     '#22c55e',
-  risk_off:    '#ef4444',
-  stagflation: '#f97316',
-  deflation:   '#a855f7',
+}
+
+// Legacy color map for any old dots still in DB (not shown in legend)
+const REGIME_COLOR_ALL = {
+  ...REGIME_COLOR,
+  risk_on:  '#22c55e',
+  risk_off: '#ef4444',
+  deflation: '#a855f7',
 }
 
 const tickerLabel = (ticker, tickerList) => {
@@ -80,7 +84,7 @@ function mergeOverlay(priceRows, regimeRows) {
 
 function RegimeDot({ cx, cy, payload }) {
   if (!payload?.regime) return null
-  return <circle cx={cx} cy={cy} r={3} fill={REGIME_COLOR[payload.regime] ?? '#6b7280'} fillOpacity={0.8} />
+  return <circle cx={cx} cy={cy} r={3} fill={REGIME_COLOR_ALL[payload.regime] ?? '#6b7280'} fillOpacity={0.8} />
 }
 
 function SectionHeader({ title, subtitle }) {
@@ -167,16 +171,12 @@ export default function History() {
   const riskRows   = (riskData?.rows  ?? []).map(r => ({ ...r, hy_spread_pct: r.hy_spread }))
   const merged     = mergeOverlay(priceRows, regimeRows)
 
-  // Regime labels — HMM states
+  // Regime labels — 4 active HMM states only (legend uses these)
   const REGIME_LABEL = {
     bull:          t('signals.bull'),
     consolidation: t('signals.consolidation'),
+    stagflation:   t('signals.stagflation'),
     bear:          t('signals.bear'),
-    // legacy keys for dot colouring if old data still present
-    risk_on:     t('history.riskOn'),
-    risk_off:    t('history.riskOff'),
-    stagflation: t('history.stagflation'),
-    deflation:   t('history.deflation'),
   }
 
   return (

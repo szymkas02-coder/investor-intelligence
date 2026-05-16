@@ -73,7 +73,7 @@
     "usdplnForecast": "Prognoza USD/PLN",
     "corrNegGood": "✓ ujemna (dywersyfikacja działa)",
     "corrHighWarn": "⚠ wysoka (aktywa zgrywają się)",
-    "verdictStagflation": "Rynek drogi historycznie (CAPE={{cape}}), akcje rentują mniej niż obligacje.",
+    "verdictStagflation": "Rynek drogi historycznie — akcje rentują mniej niż obligacje.",
     "verdictBear": "Model sygnalizuje trend spadkowy — zmienność lub silne wyprzedanie.",
     "verdictBull": "Sygnały hossy: wyceny umiarkowane, wzrostowy trend.",
     "verdictConsolidation": "Rynek w konsolidacji — brak wyraźnego kierunku.",

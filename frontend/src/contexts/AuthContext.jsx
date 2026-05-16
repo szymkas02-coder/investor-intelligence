@@ -21,32 +21,35 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = sessionStorage.getItem('access_token')
+    const token        = sessionStorage.getItem('access_token')
+    const didLogOut    = sessionStorage.getItem('explicit_logout')
     if (token) {
-      // Existing token — verify it
       client.get('/auth/me')
         .then(res => { setUser(res.data); setLoading(false) })
         .catch(() => {
           sessionStorage.removeItem('access_token')
           _autoGuestLogin(setUser, setLoading)
         })
+    } else if (didLogOut) {
+      // User explicitly logged out — stay on login page, don't auto-guest
+      setLoading(false)
     } else {
-      // No token — auto-login as guest so the app is publicly accessible
+      // First visit — auto-login as guest so app is publicly accessible
       _autoGuestLogin(setUser, setLoading)
     }
   }, [])
 
   // Called by the OAuth callback page after receiving the token from the URL
   function login(token) {
+    sessionStorage.removeItem('explicit_logout')
     sessionStorage.setItem('access_token', token)
     client.get('/auth/me').then(res => setUser(res.data))
   }
 
   function logout() {
     sessionStorage.removeItem('access_token')
+    sessionStorage.setItem('explicit_logout', '1')
     setUser(null)
-    // Re-login as guest so the app stays usable after logout
-    _autoGuestLogin(setUser, () => {})
   }
 
   return (

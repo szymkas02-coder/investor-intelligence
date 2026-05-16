@@ -73,7 +73,7 @@
     "usdplnForecast": "USD/PLN forecast",
     "corrNegGood": "✓ negative (diversification works)",
     "corrHighWarn": "⚠ high (assets move together)",
-    "verdictStagflation": "Market historically expensive (CAPE={{cape}}), stocks yield less than bonds.",
+    "verdictStagflation": "Market historically expensive — stocks yield less than bonds.",
     "verdictBear": "Bear signal: elevated volatility or significant drawdown.",
     "verdictBull": "Bull signals: moderate valuation, upward trend.",
     "verdictConsolidation": "Market in consolidation — no clear direction.",

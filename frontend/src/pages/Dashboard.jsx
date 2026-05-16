@@ -27,7 +27,7 @@ function buildVerdict(regime, macro, cape, t) {
   // Primary regime sentence
   let regimeSentence = ''
   if (state === 'stagflation') {
-    regimeSentence = t('dashboard.verdictStagflation', { cape: cape_v?.toFixed(0) ?? '—' })
+    regimeSentence = t('dashboard.verdictStagflation')
   } else if (state === 'bear') {
     regimeSentence = t('dashboard.verdictBear')
   } else if (state === 'bull') {
