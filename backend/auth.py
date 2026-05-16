@@ -57,7 +57,7 @@ JWT_TTL_SECONDS      = int(os.getenv("JWT_TTL_SECONDS", "28800"))   # 8 hours
 GOOGLE_AUTH_URL  = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
-ALLOWED_EMAILS = {"szymkas02@gmail.com"}
+ALLOWED_EMAILS: set[str] = set()  # empty = allow any Google account
 
 # ---------------------------------------------------------------------------
 # JWT — PyJWT 2.x
@@ -193,7 +193,7 @@ async def oauth_callback(code: str = Query(...)):
     user_id = id_info["sub"]
     email   = id_info.get("email", "")
 
-    if email not in ALLOWED_EMAILS:
+    if ALLOWED_EMAILS and email not in ALLOWED_EMAILS:
         raise HTTPException(status_code=403, detail="Access denied.")
 
     # Issue our own JWT
