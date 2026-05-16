@@ -30,7 +30,10 @@ frontend/dist/
 CLAUDE.md
 PROGRESS.md
 notebooks/
+investor_intelligence_pipeline.md
+ml/ML_IMPLEMENTATION_SPEC.md
+ml/ML_IMPROVEMENTS.md
+ml/PROJECTION_MODEL.md
 
 # Misc
 *.bak
-CLAUDE.md
