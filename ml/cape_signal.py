@@ -30,6 +30,9 @@ from sklearn.linear_model import QuantileRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.preprocessing import StandardScaler
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from db.init_db import get_connection
+
 warnings.filterwarnings("ignore")
 
 ROOT     = Path(__file__).parent.parent
