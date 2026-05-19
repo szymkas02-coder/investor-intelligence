@@ -198,6 +198,36 @@ def run(skip_fundamentals: bool = False,
     )
 
     # ------------------------------------------------------------------
+    # 14. HMM regime inference
+    # ------------------------------------------------------------------
+    from ml.hmm_regime import predict as hmm_predict
+    results["hmm"] = run_step("HMM regime inference", hmm_predict)
+
+    # ------------------------------------------------------------------
+    # 15. Volatility forecasts
+    # ------------------------------------------------------------------
+    from ml.volatility import predict as vol_predict
+    results["volatility"] = run_step("Volatility forecasts", vol_predict)
+
+    # ------------------------------------------------------------------
+    # 16. FX forecasts
+    # ------------------------------------------------------------------
+    from ml.currency import predict as fx_predict
+    results["fx_forecast"] = run_step("FX forecasts", fx_predict)
+
+    # ------------------------------------------------------------------
+    # 17. Recession predictions
+    # ------------------------------------------------------------------
+    from ml.recession import predict as rec_predict
+    results["recession"] = run_step("Recession predictions", rec_predict)
+
+    # ------------------------------------------------------------------
+    # 18. CAPE forecasts
+    # ------------------------------------------------------------------
+    from ml.cape_signal import predict as cape_predict
+    results["cape"] = run_step("CAPE forecasts", cape_predict)
+
+    # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
     ok = [k for k, v in results.items() if v.get("status") == "ok"]
