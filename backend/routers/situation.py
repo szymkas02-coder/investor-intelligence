@@ -59,6 +59,15 @@ Write a structured briefing with exactly these four sections:
 
 Be direct and specific. No generic disclaimers."""
 
+_LANG_SUFFIX = {
+    "pl": "\n\nWrite your entire response in Polish.",
+    "en": "",
+}
+
+def _lang_prompts(lang: str) -> tuple[str, str]:
+    suffix = _LANG_SUFFIX.get(lang, "")
+    return PULSE_PROMPT + suffix, BRIEFING_PROMPT + suffix
+
 
 def _get_genai_client():
     if not GEMINI_API_KEY:
@@ -163,6 +172,7 @@ def get_situation(
 def refresh_situation(
     db:      Annotated[object, Depends(get_db_write)],
     _user:   Annotated[str, Depends(get_current_user)],
+    lang:    str = "pl",
 ):
     require_non_guest(_user)
     """Manual refresh — rate-limited to once per 24h per type."""
@@ -181,6 +191,7 @@ def refresh_situation(
                 detail=f"Last refresh was {int(age.total_seconds()/3600)}h ago. Next allowed in ~{remaining}h.",
             )
 
+    pulse_prompt, _ = _lang_prompts(lang)
     client = _get_genai_client()
     from google.genai import types
 
@@ -190,7 +201,7 @@ def refresh_situation(
     try:
         pulse_resp = client.models.generate_content(
             model=SITUATION_MODEL,
-            contents=PULSE_PROMPT,
+            contents=pulse_prompt,
             config=config,
         )
         pulse_text = pulse_resp.text
@@ -218,6 +229,7 @@ def refresh_situation_scheduled(
     if token != PIPELINE_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    pulse_prompt, briefing_prompt = _lang_prompts("pl")
     client = _get_genai_client()
     from google.genai import types
 
@@ -226,7 +238,7 @@ def refresh_situation_scheduled(
 
     try:
         pulse_resp = client.models.generate_content(
-            model=SITUATION_MODEL, contents=PULSE_PROMPT, config=config,
+            model=SITUATION_MODEL, contents=pulse_prompt, config=config,
         )
         pulse_text = pulse_resp.text
     except Exception as e:
@@ -239,7 +251,7 @@ def refresh_situation_scheduled(
 
     try:
         briefing_resp = client.models.generate_content(
-            model=SITUATION_MODEL, contents=BRIEFING_PROMPT, config=config,
+            model=SITUATION_MODEL, contents=briefing_prompt, config=config,
         )
         briefing_text = briefing_resp.text
     except Exception as e:

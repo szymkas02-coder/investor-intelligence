@@ -7,8 +7,8 @@ import ReactMarkdown from 'react-markdown'
 function fetchSituation() {
   return client.get('/situation').then(r => r.data)
 }
-function postRefresh() {
-  return client.post('/situation/refresh').then(r => r.data)
+function postRefresh(lang) {
+  return client.post(`/situation/refresh?lang=${lang}`).then(r => r.data)
 }
 function postChat(message) {
   return client.post('/chat', { message }).then(r => r.data)
@@ -40,7 +40,7 @@ function NextUpdate({ isoString, intervalH }) {
 }
 
 export default function Situation() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['situation'],
     queryFn:  fetchSituation,
@@ -48,7 +48,7 @@ export default function Situation() {
   })
 
   const refreshMutation = useMutation({
-    mutationFn: postRefresh,
+    mutationFn: () => postRefresh(i18n.language || 'pl'),
     onSuccess:  () => refetch(),
   })
 
