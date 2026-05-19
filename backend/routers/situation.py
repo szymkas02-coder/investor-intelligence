@@ -9,9 +9,9 @@ POST /chat              — Gemma chat assistant with context injection
 import os
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from backend.auth import get_current_user, require_non_guest
@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["situation"])
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
+PIPELINE_SECRET = os.getenv("PIPELINE_SECRET", "")
 
 SITUATION_MODEL = "gemini-2.5-flash"  # best free-tier model, supports Search grounding; 20 RPD (we use ~5/day)
 CHAT_MODEL      = "gemini-3.1-flash-lite"  # 500 RPD, confirmed working — good for interactive chat
@@ -203,6 +204,55 @@ def refresh_situation(
     db.commit()
 
     return {"status": "ok", "message": "Pulse refreshed.", "content": pulse_text}
+
+
+@router.post("/situation/refresh-scheduled")
+def refresh_situation_scheduled(
+    db:            object = Depends(get_db_write),
+    authorization: Optional[str] = Header(None),
+):
+    """Scheduler-callable refresh — authenticated via PIPELINE_SECRET bearer token."""
+    if not PIPELINE_SECRET:
+        raise HTTPException(status_code=403, detail="Scheduled refresh not configured.")
+    token = (authorization or "").removeprefix("Bearer ")
+    if token != PIPELINE_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    client = _get_genai_client()
+    from google.genai import types
+
+    search_tool = types.Tool(google_search=types.GoogleSearch())
+    config = types.GenerateContentConfig(tools=[search_tool])
+
+    try:
+        pulse_resp = client.models.generate_content(
+            model=SITUATION_MODEL, contents=PULSE_PROMPT, config=config,
+        )
+        pulse_text = pulse_resp.text
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gemini pulse error: {e}")
+
+    db.execute(
+        "INSERT INTO situation_updates (type, content, model_used) VALUES (%s, %s, %s)",
+        ("pulse", pulse_text, SITUATION_MODEL),
+    )
+
+    try:
+        briefing_resp = client.models.generate_content(
+            model=SITUATION_MODEL, contents=BRIEFING_PROMPT, config=config,
+        )
+        briefing_text = briefing_resp.text
+    except Exception as e:
+        db.commit()
+        raise HTTPException(status_code=502, detail=f"Gemini briefing error: {e}")
+
+    db.execute(
+        "INSERT INTO situation_updates (type, content, model_used) VALUES (%s, %s, %s)",
+        ("briefing", briefing_text, SITUATION_MODEL),
+    )
+    db.commit()
+
+    return {"status": "ok", "message": "Pulse and briefing refreshed."}
 
 
 class ChatRequest(BaseModel):
