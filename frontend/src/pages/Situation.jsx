@@ -48,7 +48,7 @@ export default function Situation() {
   })
 
   const refreshMutation = useMutation({
-    mutationFn: () => postRefresh(i18n.language || 'pl'),
+    mutationFn: () => postRefresh('pl'),
     onSuccess:  () => refetch(),
   })
 
