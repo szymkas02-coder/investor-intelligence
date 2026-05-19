@@ -195,7 +195,7 @@ def _write_predictions(df: pd.DataFrame, model: GaussianHMM,
             INSERT INTO hmm_predictions
                 (date, model_version, state_pred, state_label,
                  prob_bull, prob_bear, prob_consolidation)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (date, model_version) DO UPDATE SET
                 state_pred = excluded.state_pred,
                 state_label = excluded.state_label,

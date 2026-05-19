@@ -324,15 +324,25 @@ def predict(horizon: int | None = None) -> pd.DataFrame:
         model_version = path.stem
 
         df = conn.execute(f"""
-            SELECT f.date, {', '.join(f'f.{c}' for c in feat_cols)}
-            FROM daily_features f
+            SELECT s.date, {', '.join(f's.{c}' for c in feat_cols)}
+            FROM (
+                SELECT
+                    date,
+                    acwi_vol_21d                             AS vol_21d,
+                    acwi_vol_21d * SQRT(5.0/21.0)           AS vol_5d_approx,
+                    ABS(acwi_ret_1d) * SQRT(252.0)          AS vol_1d_proxy,
+                    acwi_vol_63d                             AS vol_63d,
+                    {', '.join(MACRO_FEATURES)}
+                FROM daily_features
+                WHERE acwi_vol_21d IS NOT NULL
+                  AND acwi_ret_1d  IS NOT NULL
+            ) s
             LEFT JOIN volatility_forecasts vf
-                ON f.date = vf.date
+                ON s.date = vf.date
                 AND vf.model_version = '{model_version}'
                 AND vf.horizon_days  = {h}
             WHERE vf.date IS NULL
-              AND f.acwi_vol_21d IS NOT NULL
-            ORDER BY f.date
+            ORDER BY s.date
         """).df()
 
         if df.empty:

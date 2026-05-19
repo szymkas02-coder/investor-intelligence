@@ -153,13 +153,13 @@ def _write_predictions(df: pd.DataFrame, models: dict,
     q90 = models[0.90].predict(X_s)
 
     con = get_connection()
-    con.execute("DELETE FROM cape_forecasts WHERE model_version = ?", [version])
+    con.execute("DELETE FROM cape_forecasts WHERE model_version = %s", [version])
 
     for i, row in target.iterrows():
         con.execute("""
             INSERT INTO cape_forecasts
                 (date, cape, ret_q10, ret_q50, ret_q90, model_version)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (date) DO UPDATE SET
                 cape=excluded.cape, ret_q10=excluded.ret_q10,
                 ret_q50=excluded.ret_q50, ret_q90=excluded.ret_q90,
