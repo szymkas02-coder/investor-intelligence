@@ -6,8 +6,8 @@ data/
 db_dump.sql
 *.sql.gz
 
-# Models (large binaries)
-models/*.pkl
+# Models — committed to repo for Render deploy (14MB total, private repo)
+# models/*.pkl
 
 # Python
 __pycache__/
