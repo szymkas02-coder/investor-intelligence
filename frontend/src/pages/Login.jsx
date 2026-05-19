@@ -6,7 +6,7 @@ import client from '../api/client'
 export default function Login() {
   const { user, login } = useAuth()
   const { t } = useTranslation()
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user && !user.is_guest) return <Navigate to="/dashboard" replace />
 
   function handleLogin() {
     window.location.href = '/auth/login'
