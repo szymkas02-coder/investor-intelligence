@@ -1,0 +1,25 @@
+name: Daily Pipeline
+
+on:
+  schedule:
+    - cron: "0 5 * * 1-5"  # Mon–Fri 05:00 UTC = 07:00 Warsaw
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pipeline
+        run: |
+          curl -s -o response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/pipeline/run" \
+            -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --max-time 30 > http_code.txt
+          HTTP_CODE=$(cat http_code.txt)
+          echo "HTTP status: $HTTP_CODE"
+          cat response.json
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Pipeline trigger failed with status $HTTP_CODE"
+            exit 1
+          fi
