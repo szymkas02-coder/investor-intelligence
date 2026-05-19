@@ -200,6 +200,8 @@
     "chatPowered": "Powered by Gemini · responds in your language",
     "poweredPulse": "Powered by Gemini 2.5 Flash + Google Search",
     "poweredBriefing": "Powered by Gemini 2.5 Flash + Google Search · Updated weekly",
+    "langLabel": "🇵🇱 PL",
+    "langNote": "Content is always generated in Polish (shared resource for all users)",
     "chatPlaceholder": "Ask about markets, your portfolio, signals...",
     "send": "Send",
     "thinking": "Thinking...",

@@ -128,7 +128,7 @@ export default function Situation() {
           : <p className="empty">{t('situation.noPulse')}</p>
         }
 
-        <p className="situation-powered">{t('situation.poweredPulse')}</p>
+        <p className="situation-powered">{t('situation.poweredPulse')} · <span title={t('situation.langNote')}>{t('situation.langLabel')}</span></p>
       </div>
 
       <div className="card situation-card">
@@ -148,7 +148,7 @@ export default function Situation() {
           : <p className="empty">{t('situation.noBriefing')}</p>
         }
 
-        <p className="situation-powered">{t('situation.poweredBriefing')}</p>
+        <p className="situation-powered">{t('situation.poweredBriefing')} · <span title={t('situation.langNote')}>{t('situation.langLabel')}</span></p>
       </div>
 
       <div className="card situation-card chat-card">
