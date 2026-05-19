@@ -267,18 +267,17 @@ def train(horizon: int) -> dict:
         })
 
     pred_df = pd.DataFrame(rows)
-    conn.execute(f"""
-        DELETE FROM volatility_forecasts
-        WHERE model_version = '{model_version}'
-    """)
-    conn.execute("""
+    conn.execute(f"DELETE FROM volatility_forecasts WHERE model_version = '{model_version}'")
+    conn.executemany("""
         INSERT INTO volatility_forecasts
             (date, model_version, ticker, horizon_days,
              vol_forecast, vol_lower, vol_upper)
-        SELECT date, model_version, ticker, horizon_days,
-               vol_forecast, vol_lower, vol_upper
-        FROM pred_df
-    """)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (date, model_version, ticker, horizon_days) DO UPDATE SET
+            vol_forecast=EXCLUDED.vol_forecast,
+            vol_lower=EXCLUDED.vol_lower,
+            vol_upper=EXCLUDED.vol_upper
+    """, pred_df[["date","model_version","ticker","horizon_days","vol_forecast","vol_lower","vol_upper"]].values.tolist())
     conn.commit()
     conn.close()
 
@@ -368,14 +367,16 @@ def predict(horizon: int | None = None) -> pd.DataFrame:
             })
 
         pred_df = pd.DataFrame(rows)
-        conn.execute("""
+        conn.executemany("""
             INSERT INTO volatility_forecasts
                 (date, model_version, ticker, horizon_days,
                  vol_forecast, vol_lower, vol_upper)
-            SELECT date, model_version, ticker, horizon_days,
-                   vol_forecast, vol_lower, vol_upper
-            FROM pred_df
-        """)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (date, model_version, ticker, horizon_days) DO UPDATE SET
+                vol_forecast=EXCLUDED.vol_forecast,
+                vol_lower=EXCLUDED.vol_lower,
+                vol_upper=EXCLUDED.vol_upper
+        """, pred_df[["date","model_version","ticker","horizon_days","vol_forecast","vol_lower","vol_upper"]].values.tolist())
         conn.commit()
         all_results.append(pred_df)
         print(f"  Wrote {len(pred_df)} predictions -> volatility_forecasts")

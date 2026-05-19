@@ -271,14 +271,16 @@ def train(horizon: int) -> dict:
 
     pred_df = pd.DataFrame(rows)
     conn.execute(f"DELETE FROM fx_forecasts WHERE model_version = '{mv_key}'")
-    conn.execute("""
+    conn.executemany("""
         INSERT INTO fx_forecasts
             (date, model_version, pair, horizon_days,
              rate_point, rate_lower, rate_upper)
-        SELECT date, model_version, pair, horizon_days,
-               rate_point, rate_lower, rate_upper
-        FROM pred_df
-    """)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (date, model_version, pair, horizon_days) DO UPDATE SET
+            rate_point=EXCLUDED.rate_point,
+            rate_lower=EXCLUDED.rate_lower,
+            rate_upper=EXCLUDED.rate_upper
+    """, pred_df[["date","model_version","pair","horizon_days","rate_point","rate_lower","rate_upper"]].values.tolist())
     conn.commit()
     conn.close()
 
@@ -371,14 +373,16 @@ def predict(horizon: int | None = None) -> pd.DataFrame:
             })
 
         pred_df = pd.DataFrame(rows)
-        conn.execute("""
+        conn.executemany("""
             INSERT INTO fx_forecasts
                 (date, model_version, pair, horizon_days,
                  rate_point, rate_lower, rate_upper)
-            SELECT date, model_version, pair, horizon_days,
-                   rate_point, rate_lower, rate_upper
-            FROM pred_df
-        """)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (date, model_version, pair, horizon_days) DO UPDATE SET
+                rate_point=EXCLUDED.rate_point,
+                rate_lower=EXCLUDED.rate_lower,
+                rate_upper=EXCLUDED.rate_upper
+        """, pred_df[["date","model_version","pair","horizon_days","rate_point","rate_lower","rate_upper"]].values.tolist())
         conn.commit()
         all_results.append(pred_df)
         print(f"  Wrote {len(pred_df)} rows -> fx_forecasts")
