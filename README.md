@@ -5,6 +5,9 @@
 Live demo: https://investor-intelligence-1062085617181.europe-central2.run.app  
 *(Open link — no login required. Sign in with any Google account for full portfolio access.)*
 
+> **Backup deployment:** also live at https://investor-intelligence-3shd.onrender.com (Render + Supabase, $0/month).
+> The GCP deployment runs on a free trial ending ~2026-08-10; the Render deployment will become primary at that point.
+
 Built to answer one question per month: *invest now, DCA, or wait?* The system ingests market data from 8+ APIs, runs 7 ML models across market regimes, volatility, FX, recession risk, and valuation, and surfaces everything through a bilingual React frontend with an AI chat assistant.
 
 For a detailed description of every ML model (inputs, method, limitations, how to retrain), see [`docs/ML_REFERENCE.md`](docs/ML_REFERENCE.md).
