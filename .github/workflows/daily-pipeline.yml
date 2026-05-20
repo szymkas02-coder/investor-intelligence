@@ -12,7 +12,7 @@ jobs:
       - name: Trigger pipeline
         run: |
           curl -s -o response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_APP_URL }}/pipeline/run" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/api/pipeline/run" \
             -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
             -H "Content-Type: application/json" \
             --max-time 90 > http_code.txt

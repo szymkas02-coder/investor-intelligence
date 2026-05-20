@@ -12,7 +12,7 @@ jobs:
       - name: Trigger weekly briefing
         run: |
           curl -s -o response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_APP_URL }}/situation/refresh-scheduled" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/api/situation/refresh-scheduled" \
             -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
             -H "Content-Type: application/json" \
             --max-time 90 > http_code.txt

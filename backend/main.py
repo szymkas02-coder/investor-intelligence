@@ -58,16 +58,16 @@ app.add_middleware(
     allow_headers     = ["*"],
 )
 
-app.include_router(auth_router)
-app.include_router(dashboard.router)
-app.include_router(regime.router)
-app.include_router(portfolio.router)
-app.include_router(pipeline.router)
-app.include_router(decision.router)
-app.include_router(history.router)
-app.include_router(signals.router)
-app.include_router(situation.router)
-app.include_router(regime_duration.router)
+app.include_router(auth_router)                           # /auth/... stays at root (OAuth callback)
+app.include_router(dashboard.router,       prefix="/api")  # /api/dashboard
+app.include_router(regime.router,          prefix="/api")  # /api/regime
+app.include_router(portfolio.router,       prefix="/api")  # /api/portfolio
+app.include_router(pipeline.router,        prefix="/api")  # /api/pipeline
+app.include_router(decision.router,        prefix="/api")  # /api/decision
+app.include_router(history.router,         prefix="/api")  # /api/history
+app.include_router(signals.router,         prefix="/api")  # /api/signals
+app.include_router(situation.router,       prefix="/api")  # /api/situation, /api/chat
+app.include_router(regime_duration.router, prefix="/api")  # /api/regime-duration
 
 # Run DB migrations on startup (creates any missing tables safely)
 try:
@@ -78,7 +78,7 @@ except Exception as _e:
     logging.getLogger(__name__).warning("Migration skipped: %s", _e)
 
 
-@app.get("/tickers")
+@app.get("/api/tickers")
 def get_tickers(db=Depends(get_db)):
     """Return all investable ETF tickers available in raw_prices, sorted by row count."""
     rows = db.execute("""
@@ -97,7 +97,7 @@ def get_tickers(db=Depends(get_db)):
              "last": str(r[3]), "name": r[4] or r[0]} for r in rows]
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     return {"status": "ok", "version": app.version}
 
