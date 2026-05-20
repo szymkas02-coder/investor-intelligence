@@ -349,6 +349,7 @@ def predict(horizon: int | None = None) -> pd.DataFrame:
             continue
 
         print(f"  Scoring {len(df)} rows (horizon={h}d) ...")
+        df[feat_cols] = df[feat_cols].apply(pd.to_numeric, errors="coerce")
         X_df = df[feat_cols]
 
         logret_lo  = models[0.10].predict(X_df)

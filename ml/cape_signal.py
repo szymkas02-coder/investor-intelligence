@@ -163,10 +163,9 @@ def _write_predictions(df: pd.DataFrame, models: dict,
             INSERT INTO cape_forecasts
                 (date, cape, ret_q10, ret_q50, ret_q90, model_version)
             VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (date) DO UPDATE SET
+            ON CONFLICT (date, model_version) DO UPDATE SET
                 cape=excluded.cape, ret_q10=excluded.ret_q10,
-                ret_q50=excluded.ret_q50, ret_q90=excluded.ret_q90,
-                model_version=excluded.model_version
+                ret_q50=excluded.ret_q50, ret_q90=excluded.ret_q90
         """, [row["date"].date() if hasattr(row["date"], "date") else row["date"],
               float(row["cape"]),
               float(q10[i]), float(q50[i]), float(q90[i]), version])
