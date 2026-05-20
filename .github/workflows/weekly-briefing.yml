@@ -15,7 +15,7 @@ jobs:
             -X POST "${{ secrets.RENDER_APP_URL }}/situation/refresh-scheduled" \
             -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
             -H "Content-Type: application/json" \
-            --max-time 60 > http_code.txt
+            --max-time 90 > http_code.txt
           HTTP_CODE=$(cat http_code.txt)
           echo "HTTP status: $HTTP_CODE"
           cat response.json
