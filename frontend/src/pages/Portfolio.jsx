@@ -153,7 +153,15 @@ export default function Portfolio() {
       payload = { date: form.date, type: form.type, account_type: form.account_type,
                   amount_pln: parseFloat(form.amount_pln), notes: form.notes || null }
     } else {
-      payload = { ...form, shares: parseFloat(form.shares), price_pln: parseFloat(form.price_pln) }
+      payload = {
+        ticker:       form.ticker || null,
+        date:         form.date,
+        type:         form.type,
+        shares:       parseFloat(form.shares),
+        price_pln:    parseFloat(form.price_pln),
+        account_type: form.account_type,
+        notes:        form.notes || null,
+      }
     }
     if (editId) editMutation.mutate({ id: editId, ...payload })
     else        addMutation.mutate(payload)
