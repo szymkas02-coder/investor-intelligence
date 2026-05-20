@@ -184,8 +184,8 @@ def refresh_situation(
 
     if last:
         age = datetime.now(timezone.utc) - last[0].replace(tzinfo=timezone.utc)
-        if age < timedelta(hours=24):
-            remaining = int((timedelta(hours=24) - age).total_seconds() / 3600)
+        if age < timedelta(hours=6):
+            remaining = int((timedelta(hours=6) - age).total_seconds() / 3600)
             raise HTTPException(
                 status_code=429,
                 detail=f"Last refresh was {int(age.total_seconds()/3600)}h ago. Next allowed in ~{remaining}h.",
