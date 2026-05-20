@@ -13,13 +13,12 @@ client.interceptors.request.use((config) => {
   return config
 })
 
-// On 401, clear token and redirect to login
+// On 401, clear token — let AuthContext and React Router handle redirect
 client.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
       sessionStorage.removeItem('access_token')
-      window.location.href = '/login'
     }
     return Promise.reject(err)
   }

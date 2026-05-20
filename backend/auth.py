@@ -110,12 +110,13 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
     Returns user_id from verified JWT.
     In local dev mode (no GOOGLE_CLIENT_ID) returns a hardcoded dev user.
     In production, accepts a properly signed guest JWT issued by /auth/guest.
+    Falls back to guest when no token is present (supports direct browser navigation).
     """
     if DEV_MODE:
         return "dev-user-001"
 
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+        return GUEST_USER_ID
 
     token   = authorization.removeprefix("Bearer ")
     payload = verify_jwt(token)
