@@ -29,7 +29,7 @@ from backend.database import get_db
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.auth import router as auth_router
-from backend.routers import dashboard, regime, portfolio, pipeline, decision, history, signals, situation, regime_duration
+from backend.routers import dashboard, regime, portfolio, pipeline, decision, history, signals, situation, regime_duration, ml_charts
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,7 @@ app.include_router(history.router,         prefix="/api")  # /api/history
 app.include_router(signals.router,         prefix="/api")  # /api/signals
 app.include_router(situation.router,       prefix="/api")  # /api/situation, /api/chat
 app.include_router(regime_duration.router, prefix="/api")  # /api/regime-duration
+app.include_router(ml_charts.router,      prefix="/api")  # /api/ml/*
 
 # Run DB migrations on startup (creates any missing tables safely)
 try:

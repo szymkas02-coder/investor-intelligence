@@ -1,6 +1,6 @@
 # ML Model Reference — Investor Intelligence
 
-Last updated: 2026-05-16
+Last updated: 2026-05-22
 
 This document describes every predictive model in the system: what it does, what
 data it consumes, what it outputs, how it works mathematically, its known limitations,
@@ -46,10 +46,11 @@ engine and the dashboard.
 | `cpi_mom` | `shiller.csv` | Month-on-month CPI change |
 | `long_rate` | `shiller.csv` | 10-year US nominal yield |
 
-Training data: Shiller monthly CSV, 1871–present (~1,800 rows).  
-Training window: **pre-2000 only** — the model never sees post-2000 data during
-fitting, which prevents look-ahead bias. Post-2000 predictions use forward-filtering
-only (Viterbi, not smoothing).
+Training data: Shiller monthly CSV, 1871–present (~1,745 rows).  
+Training window: **full dataset** — all 155 years used for fitting. The pre-2000
+cutoff was removed (2026-05-22): more historical episodes give better transition
+matrix estimates. Look-ahead is prevented by using the **Viterbi forward filter**
+(not backward smoothing) for state assignment.
 
 ### Method
 
@@ -405,10 +406,12 @@ Walk-forward cross-validation: sliding 20-year windows, step 3 years.
   recessions partly from coincident and lagging data. In real-time, it may be
   optimistic until a recession is well underway. The new LEI features (Sahm,
   initial claims) partially mitigate this.
-- **Short training history with PostgreSQL.** The full dataset only extends to 2012
-  due to feature availability, giving only the 2020 COVID recession (20 days of
-  usrec=1 out of 3,522 total). Walk-forward CV could not run — too few recession
-  events. The model is trained on extremely imbalanced data.
+- **Extended training history (2026-05-22).** Training data now pulled directly from
+  FRED at monthly frequency back to 1960 (795 rows, 95 recession months = 11.9%).
+  This gives 7 recessions (1960, 1969, 1973, 1980, 1990, 2001, 2008, 2020) instead
+  of just COVID. Walk-forward CV now runs meaningfully: mean AUPRC=0.57, AUROC=0.71.
+  LEI features (Sahm, PERMIT, ICSA) are NaN-filled for 1960–2000 rows; model handles
+  this via `fillna(0)` in `load_data_extended()`.
 - **Sahm rule threshold.** The real-time Sahm indicator triggers at 0.50 (3-month
   average unemployment rise of ≥0.50pp from 12-month low). Including it as a raw
   feature rather than a binary trigger is intentional — it lets LightGBM learn its
@@ -476,18 +479,19 @@ Not a separate model — computed in `backend/routers/signals.py::_compute_valua
 | Metric | Formula | Meaning |
 |--------|---------|---------|
 | `trailing_pe` | `SP500 / Earnings` (Shiller latest row) | Current P/E without 10Y smoothing |
-| `us_cape` | `PE10` (Shiller) | CAPE for US market |
-| `global_cape` | `0.60 × US_CAPE + 0.40 × 15` | VWCE-weighted: 60% US + 40% ex-US (est. ~15) |
+| `us_cape` | `PE10` (Shiller) | CAPE for US market (S&P 500 / Shiller) |
 | `eps_growth_5y` | `(EPS_now / EPS_5y_ago)^(1/5) − 1` | 5-year EPS CAGR |
 | `eps_growth_hist_median` | Median 5Y CAGR since 1950 | Historical benchmark |
 
-The `global_cape` of ~29 is more relevant for VWCE than US CAPE of 39, because
-VWCE holds ~40% non-US equities (European and EM CAPE is typically 12–16).
+**Note (2026-05-22):** `global_cape` (60% US + 40% ex-US estimate) was removed. The
+dashboard and signals endpoint now show only `us_cape`. All ML models (HMM, CAPE
+regressor) use Shiller S&P 500 data — consistent to use the same US-only metric throughout.
 
 ### Known Limitations
 
 - **US-only.** Shiller data is S&P 500. VWCE is ~60% US, ~40% rest of world.
-  The global_cape correction partially addresses this.
+  The `global_cape` correction was removed (2026-05-22) — US CAPE is now the
+  displayed metric, consistent with HMM and CAPE model data sources.
 - **CAPE=39 is ~90th historical percentile.** The model is extrapolating slightly
   outside the densest training region.
 - **No earnings growth adjustment.** CAPE assumes long-run mean reversion of earnings.

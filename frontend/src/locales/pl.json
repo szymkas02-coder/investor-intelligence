@@ -6,6 +6,7 @@
     "situation": "Sytuacja",
     "portfolio": "Portfel",
     "history": "Historia",
+    "ml": "Modele ML",
     "signOut": "Wyloguj"
   },
   "common": {
@@ -137,15 +138,14 @@
     "infoRecession": "Model LightGBM oblicza prawdopodobieństwo recesji w USA na podstawie wskaźników wyprzedzających: nachylenie krzywej rentowności (spread 10L–3M), VIX, stopa bezrobocia, poziom stóp Fed, inflacja. Dane treningowe: oficjalne daty recesji NBER (1960–2024). Ograniczenie: NBER ogłasza recesje ze znacznym opóźnieniem (nawet rok), więc model mógł nauczyć się rozpoznawać recesje już po fakcie. Ryzyko 0% oznacza, że żaden wskaźnik nie sygnalizuje aktywnej recesji w USA.",
     "infoCape": "CAPE (Cyklicznie Wygładzone P/E) to stosunek ceny akcji do średnich zysków z ostatnich 10 lat, co wygładza wahania cyklu koniunkturalnego. Opracowany przez prof. Roberta Shillera (Nagroda Nobla 2013). Dane: 145 lat historii S&P 500 (Shiller 1871–2026). Model oblicza oczekiwany realny zwrot za 10 lat na podstawie aktualnego CAPE. CAPE=39 jest w ~90. percentylu historycznym — tylko ok. 10% czasu rynek był droższy. Ograniczenie: CAPE nie uwzględnia wzrostu zysków spółek — jeśli marże i zyski trwale wzrosły (np. przez AI/technologię), historyczne porównania mogą być zbyt pesymistyczne.",
     "valuationTitle": "Kontekst wyceny",
-    "valuationSummary": "CAPE globalny: {{gcape}} · zyski {{dir}} historii",
+    "valuationSummary": "CAPE USA: {{gcape}} · zyski {{dir}} historii",
     "epsAboveShort": "powyżej",
     "epsBelowShort": "poniżej",
-    "globalCape": "CAPE globalny (VWCE)",
-    "usCape": "CAPE USA (S&P 500)",
+    "usCape": "CAPE USA / S&P 500 (Shiller)",
     "trailingPe": "P/E bieżące TTM (USA)",
     "eps5yCagr": "Wzrost EPS (5 lat, CAGR)",
     "epsHistMedian": "Mediana historyczna (1950+)",
-    "infoValuation": "CAPE globalny = 60% CAPE USA + 40% szacowany CAPE reszty świata (~15; Developed ex-US ~16, EM ~13 wg Research Affiliates 2024). VWCE to fundusz globalny, więc US CAPE (39) zawyża ryzyko — po uwzględnieniu tańszych rynków europejskich i wschodzących CAPE portfela spada do ~29. Bieżące P/E (32) jest niższe od CAPE, bo CAPE używa zysków uśrednionych z 10 lat — w tym COVID (2020). 5-letni wzrost EPS (+9.7%/rok) przewyższa medianę historyczną (6.3%/rok); jeśli wynika z trwałych zmian (AI, marże), CAPE może być zbyt pesymistyczny."
+    "infoValuation": "CAPE (Shiller PE10) to stosunek ceny do średnich zysków z 10 lat — wygładza cykl koniunkturalny. Dane: 155 lat historii S&P 500 (1871–2026). CAPE=39 jest w ~90. percentylu historycznym. Ograniczenie: dane S&P 500 (USA), nie globalny portfel VWCE — modele ML używają tych samych danych Shillera dla spójności. Bieżące P/E (TTM) jest niższe od CAPE bo CAPE uwzględnia COVID (2020) w mianowniku. Wzrost EPS powyżej mediany historycznej może sugerować, że CAPE jest zbyt pesymistyczny."
   },
   "decision": {
     "title": "Miesięczna Rekomendacja",

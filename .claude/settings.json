@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(gcloud logging read *)",
+      "PowerShell(gcloud run services describe *)",
+      "PowerShell(gcloud run services list *)",
+      "PowerShell(gcloud run revisions list *)",
+      "PowerShell(gcloud sql instances describe *)",
+      "PowerShell(gcloud sql databases list *)",
+      "PowerShell(gcloud sql operations list *)",
+      "PowerShell(gcloud builds list *)",
+      "PowerShell(gcloud builds describe *)",
+      "PowerShell(gcloud builds triggers list *)",
+      "PowerShell(gcloud builds triggers describe *)",
+      "PowerShell(gcloud scheduler jobs list *)",
+      "PowerShell(gcloud scheduler jobs describe *)",
+      "PowerShell(gcloud auth list *)",
+      "PowerShell(gcloud config list *)",
+      "PowerShell(gcloud projects describe *)",
+      "PowerShell(gcloud storage ls *)",
+      "PowerShell(gcloud storage buckets list *)",
+      "PowerShell(gcloud storage buckets get-iam-policy *)",
+      "PowerShell(gcloud storage objects list *)",
+      "PowerShell(gcloud iam service-accounts list *)",
+      "PowerShell(gcloud iam service-accounts describe *)",
+      "PowerShell(gcloud secrets list *)",
+      "PowerShell(gcloud secrets describe *)",
+      "PowerShell(gcloud secrets versions list *)",
+      "PowerShell(Get-ChildItem Cert:\\LocalMachine\\Root *)",
+      "PowerShell(npm list *)",
+      "Bash(gcloud logging read *)",
+      "Bash(gcloud run services describe *)",
+      "Bash(gcloud run services list *)",
+      "Bash(gcloud auth list *)",
+      "Bash(gcloud builds triggers list *)",
+      "Bash(gcloud iam service-accounts list *)",
+      "Bash(gcloud secrets list *)",
+      "Bash(gcloud secrets describe *)"
+    ]
+  }
+}

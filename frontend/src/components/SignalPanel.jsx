@@ -63,21 +63,20 @@ function SignalCard({ title, summary, summaryColor, detail, infoText }) {
 function ValuationCard({ valuation: v, t }) {
   const trailingPe  = v.trailing_pe
   const usCape      = v.us_cape
-  const globalCape  = v.global_cape
   const eps5y       = v.eps_growth_5y
   const epsHist     = v.eps_growth_hist_median
   const epsAbove    = eps5y != null && epsHist != null && eps5y > epsHist
 
   const capeColor = (c) => c > 30 ? '#ef4444' : c > 20 ? '#f97316' : '#22c55e'
 
-  // Summary line: global CAPE + EPS growth direction
-  const summary = globalCape != null
+  // Summary line: US CAPE + EPS growth direction
+  const summary = usCape != null
     ? t('signals.valuationSummary', {
-        gcape: globalCape,
+        gcape: usCape,
         dir: epsAbove ? t('signals.epsAboveShort') : t('signals.epsBelowShort'),
       })
     : '—'
-  const summaryColor = globalCape > 28 ? '#ef4444' : globalCape > 22 ? '#f97316' : '#22c55e'
+  const summaryColor = usCape > 30 ? '#ef4444' : usCape > 22 ? '#f97316' : '#22c55e'
 
   return (
     <SignalCard
@@ -87,10 +86,6 @@ function ValuationCard({ valuation: v, t }) {
       infoText={t('signals.infoValuation')}
       detail={
         <div className="cape-band">
-          <div className="cape-band-row">
-            <span>{t('signals.globalCape')}</span>
-            <strong style={{ color: capeColor(globalCape) }}>{globalCape ?? '—'}</strong>
-          </div>
           <div className="cape-band-row">
             <span>{t('signals.usCape')}</span>
             <strong style={{ color: capeColor(usCape) }}>{usCape ?? '—'}</strong>

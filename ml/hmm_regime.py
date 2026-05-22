@@ -1,16 +1,17 @@
 """
-ml/hmm_regime.py — 3-state Hidden Markov Model regime detector
+ml/hmm_regime.py — 4-state Hidden Markov Model regime detector
 
-Trained on Shiller monthly data (1871-2026, ~1,800 observations).
+Trained on full Shiller monthly data (1871-2026, ~1,800 observations).
 No label circularity — unsupervised learning discovers latent states.
 
-States: Bull / Bear / Consolidation (confirmed by BIC vs 2 and 4 states)
+States: Bull / Consolidation / Stagflation / Bear (BIC-selected n=4)
 
 Key design decisions:
-- Train on pre-2000 data, forward-filter only for 2000+ (no look-ahead bias)
+- Train on ALL available data (full 155Y) — more episodes = better transition estimates
 - GaussianHMM with full covariance (hmmlearn)
+- Forward-filter (Viterbi) used for state assignment — no backward smoothing = no look-ahead
 - States labelled post-hoc by mean return (Bull = highest, Bear = most negative)
-- Probabilities stored in hmm_predictions table (separate from regime_predictions)
+- Probabilities stored in hmm_predictions table
 
 Usage:
     python ml/hmm_regime.py train    # fit model, save pkl, write predictions
@@ -39,8 +40,7 @@ ROOT     = Path(__file__).parent.parent
 PKL_PATH = ROOT / "models" / "hmm_regime.pkl"
 SHILLER  = ROOT / "shiller.csv"
 
-TRAIN_CUTOFF = "2000-01-01"
-N_STATES     = 3
+N_STATES     = 4
 N_ITER       = 2000
 RANDOM_STATE = 42
 
@@ -142,12 +142,9 @@ def train():
     scaler   = StandardScaler()
     X_scaled = scaler.fit_transform(X_all)
 
-    train_mask = df["date"] < TRAIN_CUTOFF
-    X_train    = X_scaled[train_mask]
-    print(f"  Training on pre-2000: {train_mask.sum()} rows")
-
+    print(f"  Training on full dataset: {len(X_scaled)} rows")
     print(f"\nFitting HMM (BIC selection over n_states=2,3,4)...")
-    model = fit_with_bic(X_train)
+    model = fit_with_bic(X_scaled)
 
     state_labels = label_states(model, FEATURE_COLS)
     print(f"  State labels: {state_labels}")

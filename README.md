@@ -149,13 +149,14 @@ Two Gemini models serve distinct roles:
 
 ## Frontend
 
-Five pages built in React + Vite:
+Six pages + 7 ML model detail pages built in React + Vite:
 
 - **Dashboard** — verdict banner, regime indicator, signal panel (HMM, KM duration, recession, CAPE, valuation context), volatility gauge, FX fan chart, macro snapshot
 - **Decision** — INVEST/DCA/WAIT with plain-language reasons, horizon-dependent return projection
 - **Portfolio** — positions, transaction history, IKE tracker, allocation breakdown charts
 - **History** — price and macro time series with regime overlay, searchable ticker dropdown
 - **Situation Room** — AI market briefing + persistent chat assistant
+- **ML Models** — hub page listing all 7 models with live signal badges; each model has its own dedicated page with 4–5 interactive charts (regime timeline, survival curves, CAPE scatter, recession calibration, etc.), two-level descriptions (plain language ↔ technical), and feature importance visualisations
 
 Fully bilingual (Polish/English) via i18next. Language preference stored in localStorage.
 

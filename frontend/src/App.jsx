@@ -1,12 +1,20 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
-import Login     from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Decision  from './pages/Decision'
-import Portfolio from './pages/Portfolio'
-import History   from './pages/History'
-import Situation from './pages/Situation'
+import Login           from './pages/Login'
+import Dashboard       from './pages/Dashboard'
+import Decision        from './pages/Decision'
+import Portfolio       from './pages/Portfolio'
+import History         from './pages/History'
+import Situation       from './pages/Situation'
+import ML              from './pages/ML'
+import HMMPage         from './pages/ml/HMM'
+import RegimeDuration  from './pages/ml/RegimeDuration'
+import VolatilityPage  from './pages/ml/Volatility'
+import CAPEPage        from './pages/ml/CAPE'
+import RecessionPage   from './pages/ml/Recession'
+import FXPage          from './pages/ml/FX'
+import PCAPage         from './pages/ml/PCA'
 import './App.css'
 
 function RequireAuth({ children }) {
@@ -35,6 +43,7 @@ function Nav() {
         <NavLink to="/situation">{t('nav.situation')}</NavLink>
         <NavLink to="/portfolio">{t('nav.portfolio')}</NavLink>
         <NavLink to="/history">{t('nav.history')}</NavLink>
+        <NavLink to="/ml">{t('nav.ml', 'ML')}</NavLink>
       </div>
       <div className="nav-user">
         <button onClick={toggleLang} className="btn-ghost lang-toggle">
@@ -78,6 +87,30 @@ export default function App() {
           } />
           <Route path="/situation" element={
             <RequireAuth><Layout><Situation /></Layout></RequireAuth>
+          } />
+          <Route path="/ml" element={
+            <RequireAuth><Layout><ML /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/hmm" element={
+            <RequireAuth><Layout><HMMPage /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/regime-duration" element={
+            <RequireAuth><Layout><RegimeDuration /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/volatility" element={
+            <RequireAuth><Layout><VolatilityPage /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/cape" element={
+            <RequireAuth><Layout><CAPEPage /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/recession" element={
+            <RequireAuth><Layout><RecessionPage /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/fx" element={
+            <RequireAuth><Layout><FXPage /></Layout></RequireAuth>
+          } />
+          <Route path="/ml/pca" element={
+            <RequireAuth><Layout><PCAPage /></Layout></RequireAuth>
           } />
         </Routes>
       </BrowserRouter>

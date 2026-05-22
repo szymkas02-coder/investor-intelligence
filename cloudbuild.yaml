@@ -24,14 +24,9 @@ substitutions:
   _SQL_INSTANCE: investor-intelligence-db
 
 steps:
-  # Download ML model artifacts from GCS into build context
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
-    entrypoint: bash
-    args:
-      - -c
-      - mkdir -p ./models && gsutil -m cp -r gs://investor-intelligence-496113-backup/models/* ./models/
-
   # Build the Docker image
+  # ML model .pkl files are committed to the repo (models/) and copied into the
+  # image via Dockerfile "COPY models/ ./models/" — no GCS pull needed.
   - name: gcr.io/cloud-builders/docker
     args:
       - build

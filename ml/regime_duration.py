@@ -47,9 +47,14 @@ def load_regime_episodes(conn) -> pd.DataFrame:
     Returns DataFrame: regime, start_date, end_date, duration_months, observed.
     observed=False means the episode was censored (still ongoing at last date).
     """
+    # Use only the most recent model version to avoid mixing old+new predictions
     try:
+        latest_version = conn.execute(
+            "SELECT model_version FROM hmm_predictions ORDER BY predicted_at DESC LIMIT 1"
+        ).fetchone()[0]
         rows = conn.execute(
-            "SELECT date, state_label FROM hmm_predictions ORDER BY date"
+            "SELECT date, state_label FROM hmm_predictions WHERE model_version = %s ORDER BY date",
+            [latest_version]
         ).fetchall()
         df = pd.DataFrame(rows, columns=["date", "regime"])
     except Exception:
@@ -92,7 +97,7 @@ def compute_km_estimates(episodes: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for regime, grp in episodes.groupby("regime"):
         if len(grp) < 2:
-            print(f"  Skipping {regime}: only {len(grp)} episode(s), need ≥2 for KM")
+            print(f"  Skipping {regime}: only {len(grp)} episode(s), need >=2 for KM")
             continue
 
         kmf = KaplanMeierFitter()
@@ -166,12 +171,16 @@ def get_current_regime_status(conn) -> dict:
     median_duration, p25_duration, p75_duration (all Optional).
     """
     try:
+        latest_version = conn.execute(
+            "SELECT model_version FROM hmm_predictions ORDER BY predicted_at DESC LIMIT 1"
+        ).fetchone()[0]
         hmm_rows = conn.execute("""
             SELECT date, state_label
             FROM hmm_predictions
+            WHERE model_version = %s
             ORDER BY date DESC
             LIMIT 90
-        """).fetchall()
+        """, [latest_version]).fetchall()
     except Exception:
         return {}
 
