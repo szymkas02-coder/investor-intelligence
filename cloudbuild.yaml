@@ -20,8 +20,14 @@
 
 substitutions:
   _REGION: europe-central2
-  _SERVICE: investor-intelligence
+  # _SERVICE is the Cloud Run service name (and Artifact Registry image name).
+  # Renamed 2026-05-23 from `investor-intelligence` to `inwestowanie-pasywne` to
+  # match the rebrand. The Cloud SQL instance and service account names stay
+  # under their original identifiers (renaming them would churn IAM bindings
+  # and the DB connection string for no user-visible benefit).
+  _SERVICE: inwestowanie-pasywne
   _SQL_INSTANCE: investor-intelligence-db
+  _SERVICE_ACCOUNT: investor-intelligence
 
 steps:
   # Build the Docker image
@@ -61,7 +67,7 @@ steps:
       - --max-instances=3
       - --concurrency=10
       - --timeout=3600
-      - --service-account=${_SERVICE}@$PROJECT_ID.iam.gserviceaccount.com
+      - --service-account=${_SERVICE_ACCOUNT}@$PROJECT_ID.iam.gserviceaccount.com
       - --add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_SQL_INSTANCE}
       - --set-secrets=DATABASE_URL=DATABASE_URL:latest,APP_SECRET=APP_SECRET:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,GOOGLE_REDIRECT_URI=GOOGLE_REDIRECT_URI:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,FRED_API_KEY=FRED_API_KEY:latest,STOOQ_API_KEY=STOOQ_API_KEY:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest
 

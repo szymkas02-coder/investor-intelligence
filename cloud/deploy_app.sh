@@ -28,9 +28,11 @@ set -euo pipefail
 PROJECT_ID=${1:?Usage: deploy_app.sh PROJECT_ID [REGION] [SQL_INSTANCE_NAME]}
 REGION=${2:-europe-central2}
 SQL_INSTANCE=${3:-free-trial-first-project}
-SERVICE_NAME="investor-intelligence"
+SERVICE_NAME="inwestowanie-pasywne"
+# Service account name kept as the original to avoid IAM churn during rename
+SA_NAME="investor-intelligence"
 IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_ID}/investor/${SERVICE_NAME}"
-SA_EMAIL="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 SQL_CONN_NAME="${PROJECT_ID}:${REGION}:${SQL_INSTANCE}"
 
 echo "========================================"
@@ -60,7 +62,7 @@ echo "  Image pushed: ${IMAGE_NAME}:latest"
 
 # ─── 3. Service account ──────────────────────────────────────────────────────
 echo "[3/6] Ensuring service account exists..."
-gcloud iam service-accounts create "${SERVICE_NAME}" \
+gcloud iam service-accounts create "${SA_NAME}" \
   --display-name="Inwestowanie Pasywne App" \
   --project="${PROJECT_ID}" 2>/dev/null || true
 

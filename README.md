@@ -3,10 +3,10 @@
 **A personal finance dashboard for long-term passive investors.**
 **Built primarily to demonstrate data engineering, PostgreSQL, and cloud deployment (GCP + Render).**
 
-Live demo: https://investor-intelligence-1062085617181.europe-central2.run.app  
+Live demo: https://inwestowanie-pasywne-1062085617181.europe-central2.run.app  
 *(Open link — no login required. Sign in with any Google account for full portfolio access.)*
 
-> **Backup deployment:** also live at https://investor-intelligence-3shd.onrender.com (Render + Supabase, $0/month).
+> **Backup deployment:** also live on Render + Supabase (free tier, $0/month).
 > The GCP deployment runs on a free trial ending ~2026-08-10; the Render deployment will become primary at that point.
 
 The core proposition is unromantic on purpose: **be globally diversified, contribute monthly, don't time the market.** The app supports that by tracking your portfolio (positions, IKE contribution limit, transaction history, AI-parsed broker imports), providing a long-run perspective on equity returns, an AI assistant for market questions, and a Situation Room with Gemini-grounded weekly briefings.

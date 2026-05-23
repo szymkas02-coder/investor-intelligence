@@ -43,14 +43,19 @@ app = FastAPI(
     version     = "0.1.0",
 )
 
-# CORS — dev origins + any Cloud Run origin set via env var
-_extra_origin = os.getenv("ALLOWED_ORIGIN", "https://investor-intelligence-1062085617181.europe-central2.run.app")
+# CORS — dev origins + production Cloud Run origins.
+# Both the old service name and the new one are allowed during the rename
+# migration window; once the old service is deleted, the legacy entry can
+# be removed too. Additional origins can be added via ALLOWED_ORIGIN env var.
+_extra_origin = os.getenv("ALLOWED_ORIGIN", "")
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
+        "https://inwestowanie-pasywne-1062085617181.europe-central2.run.app",
+        "https://investor-intelligence-1062085617181.europe-central2.run.app",
         *([_extra_origin] if _extra_origin else []),
     ],
     allow_credentials = True,
