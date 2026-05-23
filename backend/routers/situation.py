@@ -174,11 +174,35 @@ def refresh_situation_scheduled(
     db:            object = Depends(get_db_write),
     authorization: Optional[str] = Header(None),
 ):
-    """Scheduler-callable refresh — authenticated via PIPELINE_SECRET bearer token."""
-    if not PIPELINE_SECRET:
+    """Scheduler-callable refresh.
+
+    Accepts either:
+      - Bearer PIPELINE_SECRET (used by GitHub Actions on Render)
+      - A Google OIDC token from the Cloud Scheduler service account (used
+        on GCP, where PIPELINE_SECRET isn't injected as an env var)
+    Mirrors the auth logic in pipeline.py::_check_auth.
+    """
+    SCHEDULER_SA = "investor-intelligence@investor-intelligence-496113.iam.gserviceaccount.com"
+    if not PIPELINE_SECRET and not authorization:
         raise HTTPException(status_code=403, detail="Scheduled refresh not configured.")
-    token = (authorization or "").removeprefix("Bearer ")
-    if token != PIPELINE_SECRET:
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    token = authorization.removeprefix("Bearer ")
+    authed = False
+    if PIPELINE_SECRET and token == PIPELINE_SECRET:
+        authed = True
+    if not authed:
+        # Try OIDC: decode the JWT and verify the email claim (Cloud Run's
+        # IAM layer has already verified the signature before we see it).
+        try:
+            import jwt as pyjwt
+            claims = pyjwt.decode(token, options={"verify_signature": False})
+            if claims.get("email") == SCHEDULER_SA:
+                authed = True
+        except Exception:
+            pass
+    if not authed:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     pulse_prompt, briefing_prompt = _lang_prompts("pl")
