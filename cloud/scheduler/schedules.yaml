@@ -1,4 +1,4 @@
-# Cloud Scheduler job definitions for the Investor Intelligence pipeline
+# Cloud Scheduler job definitions for the Inwestowanie Pasywne pipeline
 #
 # Deploy with:
 #   gcloud scheduler jobs create http <name> \

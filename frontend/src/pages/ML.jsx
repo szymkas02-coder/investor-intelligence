@@ -215,12 +215,12 @@ export default function ML() {
         borderRadius: 8, border: '1px solid #e2e8f0',
       }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', margin: '0 0 0.5rem' }}>
-          {pl ? 'Co modele mówią łącznie?' : 'What do the models say collectively?'}
+          {pl ? 'Dlaczego to sekcja research?' : 'Why this is a research section?'}
         </h3>
         <p style={{ fontSize: '0.82rem', color: '#475569', lineHeight: 1.6, margin: 0 }}>
           {pl
-            ? 'Te modele nie są systemem sygnałów transakcyjnych — nie próbuj nimi "wyczuć rynku". Są narzędziem świadomości: pozwalają rozumieć w jakim otoczeniu podejmujesz miesięczną decyzję IKE. Rekomendacja INVEST/DCA/WAIT na stronie Decyzja syntetyzuje te sygnały w jedno zdanie.'
-            : 'These models are not a trading signal system — don\'t use them to "time the market." They are a situational awareness tool: they help you understand the environment in which you are making your monthly IKE decision. The INVEST/DCA/WAIT recommendation on the Decision page synthesises these signals into a single sentence.'}
+            ? 'Te modele zostały zbudowane, żeby pokazać techniki — HMM, KM, RF, kalibrację izotoniczną, regresję kwantylową, PCA. Nie są systemem sygnałów transakcyjnych. Strona Inwestuj nie używa ich do generowania rekomendacji; pokazuje długoterminową perspektywę i symulację historyczną. Te modele mają znane ograniczenia (np. CAPE post-1990 jest strukturalnie inny niż historyczny) i są przedstawione razem z tymi ograniczeniami.'
+            : 'These models were built to demonstrate techniques — HMM, KM, RF, isotonic calibration, quantile regression, PCA. They are not a trading signal system. The Invest page does not use them to generate a recommendation; it shows a long-run perspective and a historical simulation. They have known limitations (e.g. post-1990 CAPE is structurally different from the historical record) and are presented alongside those limitations.'}
         </p>
       </div>
     </div>

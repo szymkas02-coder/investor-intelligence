@@ -1,4 +1,4 @@
-# ML Model Reference — Investor Intelligence
+# ML Model Reference — Inwestowanie Pasywne
 
 Last updated: 2026-05-22
 

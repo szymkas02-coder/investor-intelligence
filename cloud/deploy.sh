@@ -23,7 +23,7 @@ gsutil mb -p "${PROJECT_ID}" -l "${REGION}" "gs://${GCS_BUCKET}" 2>/dev/null || 
 
 # ─── Create service account ─────────────────────────────────────────────────
 gcloud iam service-accounts create investor-pipeline \
-  --display-name="Investor Intelligence Pipeline" \
+  --display-name="Inwestowanie Pasywne Pipeline" \
   --project="${PROJECT_ID}" 2>/dev/null || true
 
 gcloud projects add-iam-policy-binding "${PROJECT_ID}" \

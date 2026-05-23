@@ -268,5 +268,5 @@ if __name__ == "__main__":
         not args.fundamentals and date.today().weekday() != 4
     )
 
-    log.info("=== Investor Intelligence Pipeline — %s ===", date.today())
+    log.info("=== Inwestowanie Pasywne Pipeline — %s ===", date.today())
     run(skip_fundamentals=skip_fund, full_reload=args.full_reload)

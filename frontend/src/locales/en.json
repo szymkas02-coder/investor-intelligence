@@ -1,6 +1,6 @@
 {
   "nav": {
-    "brand": "Investor Intelligence",
+    "brand": "Inwestowanie Pasywne",
     "dashboard": "Dashboard",
     "decision": "Decision",
     "invest": "Invest",
@@ -12,7 +12,7 @@
     "signOut": "Sign out"
   },
   "dashboardHub": {
-    "welcome": "Welcome to Investor Intelligence",
+    "welcome": "Inwestowanie Pasywne",
     "tagline": "Powered by 7 ML models and 8 data sources",
     "asOf": "Data as of {{date}}",
     "thisMonthsRecommendation": "This month's recommendation",
@@ -21,16 +21,16 @@
     "daysAgo": "{{n}} days ago",
     "hoursAgo": "{{n}}h ago",
     "minutesAgo": "{{n}}m ago",
-    "decisionSubtitle": "INVEST · DCA · WAIT · 20-year projection",
-    "decisionDesc": "Monthly investment recommendation with reasoning and 10/50/90 percentile portfolio value forecast.",
+    "decisionSubtitle": "monthly contribution · long horizon · historical simulation",
+    "decisionDesc": "Your monthly move, the long-run S&P chart, a \"what if I had invested X in year Y\" simulation, and a 20-year portfolio value projection.",
     "portfolioSubtitle": "Positions · transactions · IKE · allocation",
     "portfolioDesc": "Your portfolio with regional and sector analysis. Broker Excel import, IKE limit tracking.",
     "historySubtitle": "Prices · macro · regimes 10+ years",
     "historyDesc": "Price charts for all ETFs, macro data (CPI, rates, VIX) and historical market regime timeline.",
     "situationSubtitle": "Market pulse · briefing · AI chat",
     "situationDesc": "Daily news pulse from Google Search, weekly briefing, and AI assistant with access to app signals.",
-    "mlSubtitle": "7 predictive models",
-    "mlDesc": "HMM regime, survival curves, volatility forecast, recession risk, CAPE valuation, USD/PLN, diversification.",
+    "mlSubtitle": "research · 7 predictive models",
+    "mlDesc": "Research section: survival curves, volatility forecast, recession risk, CAPE valuation, USD/PLN, diversification. Does not drive the app's recommendation.",
     "researchTitle": "Danger Zone",
     "researchSubtitle": "Single-ETF deep-dive (coming soon)",
     "researchDesc": "Research single themes/sectors (e.g. VanEck Space). Context, not recommendation — ~70% of sector tilts underperform the index long-term.",

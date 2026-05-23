@@ -34,7 +34,7 @@ SA_EMAIL="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 SQL_CONN_NAME="${PROJECT_ID}:${REGION}:${SQL_INSTANCE}"
 
 echo "========================================"
-echo "  Investor Intelligence — Cloud Run Deploy"
+echo "  Inwestowanie Pasywne — Cloud Run Deploy"
 echo "  Project  : ${PROJECT_ID}"
 echo "  Region   : ${REGION}"
 echo "  Image    : ${IMAGE_NAME}"
@@ -61,7 +61,7 @@ echo "  Image pushed: ${IMAGE_NAME}:latest"
 # ─── 3. Service account ──────────────────────────────────────────────────────
 echo "[3/6] Ensuring service account exists..."
 gcloud iam service-accounts create "${SERVICE_NAME}" \
-  --display-name="Investor Intelligence App" \
+  --display-name="Inwestowanie Pasywne App" \
   --project="${PROJECT_ID}" 2>/dev/null || true
 
 # Cloud SQL Client role — required to connect via Unix socket

@@ -1,6 +1,6 @@
 {
   "nav": {
-    "brand": "Investor Intelligence",
+    "brand": "Inwestowanie Pasywne",
     "dashboard": "Pulpit",
     "decision": "Decyzja",
     "invest": "Inwestuj",
@@ -12,7 +12,7 @@
     "signOut": "Wyloguj"
   },
   "dashboardHub": {
-    "welcome": "Witaj w Investor Intelligence",
+    "welcome": "Inwestowanie Pasywne",
     "tagline": "Aplikacja oparta na 7 modelach ML i 8 źródłach danych",
     "asOf": "Dane z {{date}}",
     "thisMonthsRecommendation": "Rekomendacja na ten miesiąc",
@@ -21,16 +21,16 @@
     "daysAgo": "{{n}} dni temu",
     "hoursAgo": "{{n}}h temu",
     "minutesAgo": "{{n}}m temu",
-    "decisionSubtitle": "INVEST · DCA · WAIT · projekcja 20-letnia",
-    "decisionDesc": "Miesięczna rekomendacja inwestycyjna z uzasadnieniem i 10/50/90-percentylową prognozą wartości portfela.",
+    "decisionSubtitle": "miesięczny wkład · długi horyzont · symulacja historyczna",
+    "decisionDesc": "Twój comiesięczny ruch, długoterminowy wykres S&P, symulacja \"co by było, gdybym zainwestował X w roku Y\" i prognoza wartości portfela na 20 lat.",
     "portfolioSubtitle": "Pozycje · transakcje · IKE · alokacja",
     "portfolioDesc": "Twój portfel z analizą regionalną i sektorową. Import z brokera, śledzenie limitu IKE.",
     "historySubtitle": "Ceny · makro · regimy 10+ lat",
     "historyDesc": "Wykresy cen wszystkich ETF-ów, dane makro (CPI, stopy, VIX) i historia reżimów rynkowych.",
     "situationSubtitle": "Puls rynku · briefing · chat AI",
     "situationDesc": "Codzienny pulse z Google Search, cotygodniowy briefing i asystent AI z dostępem do sygnałów aplikacji.",
-    "mlSubtitle": "7 modeli predykcyjnych",
-    "mlDesc": "Reżim HMM, krzywe przeżycia, prognoza zmienności, ryzyko recesji, wycena CAPE, USD/PLN, dywersyfikacja.",
+    "mlSubtitle": "research · 7 modeli predykcyjnych",
+    "mlDesc": "Sekcja badawcza: krzywe przeżycia, prognoza zmienności, ryzyko recesji, wycena CAPE, USD/PLN, dywersyfikacja. Nie napędza rekomendacji aplikacji.",
     "researchTitle": "Strefa ryzyka",
     "researchSubtitle": "Analiza pojedynczych ETF-ów (wkrótce)",
     "researchDesc": "Sprawdź pojedyncze tematy/sektory (np. VanEck Space). Kontekst, nie rekomendacja — ~70% tilt-ów przegrywa z indeksem długoterminowo.",

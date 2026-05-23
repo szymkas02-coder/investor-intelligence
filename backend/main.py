@@ -38,8 +38,8 @@ logger = logging.getLogger(__name__)
 # On GCP: DATABASE_URL points to Cloud SQL instance (injected via Secret Manager).
 
 app = FastAPI(
-    title       = "Investor Intelligence API",
-    description = "Personal investment intelligence for IKE/ACWI ETF investors.",
+    title       = "Inwestowanie Pasywne API",
+    description = "Personal finance dashboard for long-term passive investors (IKE/IKZE/ACWI).",
     version     = "0.1.0",
 )
 

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Investor Intelligence System — PostgreSQL Schema
+-- Inwestowanie Pasywne — PostgreSQL Schema
 -- =============================================================================
 --
 -- TEACHING NOTE — key differences from schema.sql (DuckDB):

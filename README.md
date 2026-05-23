@@ -1,4 +1,4 @@
-# Investor Intelligence
+# Inwestowanie Pasywne
 
 **A personal finance dashboard for long-term passive investors.**
 **Built primarily to demonstrate data engineering, PostgreSQL, and cloud deployment (GCP + Render).**

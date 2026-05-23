@@ -2,11 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import client from '../api/client'
-import { REGIME_COLORS } from '../components/ml/RegimeColors'
 
 const fetch = (path) => client.get(path).then(r => r.data).catch(() => null)
-
-const ACTION_COLOR = { INVEST: '#22c55e', DCA: '#f97316', WAIT: '#ef4444' }
 
 function Badge({ children, color, bg }) {
   return (
@@ -116,22 +113,16 @@ export default function Dashboard() {
   const { t, i18n } = useTranslation()
   const pl = i18n.language === 'pl'
 
-  // Fetch every data source in parallel; each is independent
-  const { data: decision } = useQuery({ queryKey: ['hub-decision'], queryFn: () => fetch(`/decision?lang=${pl ? 'pl' : 'en'}`) })
+  // Hub fetches — calm /invest/status (no DCA/WAIT triad), plus light context
+  // for the navigation cards. We intentionally do NOT pull /decision or
+  // /ml/summary here anymore: the Dashboard is navigation, not a regime board.
+  const { data: invest }   = useQuery({ queryKey: ['hub-invest', pl ? 'pl' : 'en'], queryFn: () => fetch(`/invest/status?lang=${pl ? 'pl' : 'en'}`) })
   const { data: portfolio } = useQuery({ queryKey: ['hub-portfolio'], queryFn: () => fetch('/portfolio') })
-  const { data: tickers } = useQuery({ queryKey: ['hub-tickers'], queryFn: () => fetch('/tickers') })
+  const { data: tickers }  = useQuery({ queryKey: ['hub-tickers'], queryFn: () => fetch('/tickers') })
   const { data: situation } = useQuery({ queryKey: ['hub-situation'], queryFn: () => fetch('/situation') })
-  const { data: mlSummary } = useQuery({ queryKey: ['hub-ml-summary'], queryFn: () => fetch('/ml/summary') })
-  const { data: dashApi } = useQuery({ queryKey: ['hub-dashboard'], queryFn: () => fetch('/dashboard') })
+  const { data: dashApi }  = useQuery({ queryKey: ['hub-dashboard'], queryFn: () => fetch('/dashboard') })
 
-  const asOf = dashApi?.as_of ?? mlSummary?.hmm?.date
-
-  // Decision badge
-  const decBadge = decision ? (
-    <Badge color={ACTION_COLOR[decision.action] ?? '#6b7280'}>
-      {decision.action ?? '—'}
-    </Badge>
-  ) : null
+  const asOf = dashApi?.as_of
 
   // Portfolio badge
   const portBadge = portfolio ? (
@@ -150,11 +141,10 @@ export default function Dashboard() {
     <Badge color="#475569">{timeAgo(situation.pulse.created_at, t)}</Badge>
   ) : null
 
-  // ML hub badge: current regime state
-  const mlState = mlSummary?.hmm?.state
-  const mlBadge = mlState ? (
-    <Badge color={REGIME_COLORS[mlState] ?? '#6b7280'}>
-      {mlState}
+  // Invest card badge: IKE remaining (the only number that varies and is actionable)
+  const investBadge = invest?.ike_remaining != null ? (
+    <Badge color="#3b82f6">
+      {invest.ike_remaining.toLocaleString(pl ? 'pl-PL' : 'en-US', { maximumFractionDigits: 0 })} PLN
     </Badge>
   ) : null
 
@@ -172,15 +162,15 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Verdict highlight — pulled from /decision */}
-      {decision && (
+      {/* Calm verdict highlight — no INVEST/DCA/WAIT triad, no model talk */}
+      {invest && (
         <Link to="/invest" style={{ textDecoration: 'none' }}>
           <div
             style={{
               background: '#fff',
               borderRadius: 12,
               border: '1px solid #e2e8f0',
-              borderLeft: `5px solid ${ACTION_COLOR[decision.action] ?? '#6b7280'}`,
+              borderLeft: '5px solid #22c55e',
               padding: '1.2rem 1.4rem',
               marginBottom: '1.5rem',
               cursor: 'pointer',
@@ -190,27 +180,25 @@ export default function Dashboard() {
             onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
           >
             <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.4rem' }}>
-              {t('dashboardHub.thisMonthsRecommendation')}
+              {pl ? 'W tym miesiącu' : 'This month'}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <span style={{
-                background: ACTION_COLOR[decision.action] ?? '#6b7280',
-                color: '#fff',
-                padding: '0.4rem 0.9rem',
-                borderRadius: 6,
-                fontWeight: 700,
-                fontSize: '1.05rem',
-                letterSpacing: '0.04em',
-              }}>
-                {decision.action}
+              <span style={{ color: '#0f172a', fontSize: '0.98rem', flex: 1, minWidth: 200, lineHeight: 1.5 }}>
+                {invest.headline}
               </span>
-              <span style={{ color: '#475569', fontSize: '0.95rem', flex: 1, minWidth: 200 }}>
-                {decision.reasons?.[0] ?? '—'}
-              </span>
-              <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                {t('dashboardHub.fullAnalysis')} →
+              <span style={{ fontSize: '0.8rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                {pl ? 'Pełna analiza' : 'Full analysis'} →
               </span>
             </div>
+            {invest.fx_flag && (
+              <div style={{
+                marginTop: '0.7rem', padding: '0.5rem 0.7rem',
+                background: '#fef3c7', borderLeft: '3px solid #f59e0b',
+                borderRadius: 4, fontSize: '0.8rem', color: '#78350f', lineHeight: 1.5,
+              }}>
+                <strong>{pl ? 'Uwaga walutowa: ' : 'FX note: '}</strong>{invest.fx_flag}
+              </div>
+            )}
           </div>
         </Link>
       )}
@@ -223,7 +211,7 @@ export default function Dashboard() {
           title={t('nav.invest', { defaultValue: t('nav.decision') })}
           subtitle={t('dashboardHub.decisionSubtitle')}
           description={t('dashboardHub.decisionDesc')}
-          badge={decBadge}
+          badge={investBadge}
         />
         <HubCard
           to="/portfolio"
@@ -252,10 +240,9 @@ export default function Dashboard() {
         <HubCard
           to="/ml"
           icon="🤖"
-          title={t('nav.ml')}
+          title={t('nav.research', { defaultValue: t('nav.ml') })}
           subtitle={t('dashboardHub.mlSubtitle')}
           description={t('dashboardHub.mlDesc')}
-          badge={mlBadge}
         />
         <ResearchCard
           icon="⚠"
