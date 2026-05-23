@@ -26,12 +26,12 @@ For a detailed description of every ML model (inputs, method, limitations, how t
 │                          Data Sources (8+ APIs)                      │
 │   yfinance  FRED  NBP  ECB SDW  STOOQ  Finnhub  SEC EDGAR  Shiller  │
 └───────────────────────────────┬──────────────────────────────────────┘
-                                │ 10-step automated pipeline
-                                │ Cloud Scheduler: Mon-Fri 06:00 Warsaw
+                                │ 12-step automated pipeline
+                                │ Cloud Scheduler: Mon-Fri 04:00 Warsaw
                                 v
 ┌──────────────────────────────────────────────────────────────────────┐
 │                    PostgreSQL (Cloud SQL)                             │
-│   228k+ rows   55 ETF tickers   25 tables                            │
+│   236k+ rows   62 tickers   29 tables                                 │
 │   raw_prices / daily_features / hmm_predictions / fx_forecasts / ... │
 └───────────┬──────────────────────────────────┬───────────────────────┘
             │                                  │
@@ -48,9 +48,9 @@ For a detailed description of every ML model (inputs, method, limitations, how t
 │   PCA diversification  │                         v
 └────────────────────────┘          ┌──────────────────────────────────┐
                                     │     React + Vite Frontend         │
-┌────────────────────────┐          │     Dashboard / Decision          │
+┌────────────────────────┐          │     Dashboard / Invest            │
 │   AI Layer (Gemini)    │          │     Portfolio / History           │
-│                        │          │     Situation Room               │
+│                        │          │     Situation Room / Research     │
 │   2.5 Flash + Search   │─────────>│     Bilingual: Polish / English   │
 │   grounding → weekly   │          │     i18next                       │
 │   market briefings     │          └──────────────────────────────────┘
@@ -79,33 +79,35 @@ For a detailed description of every ML model (inputs, method, limitations, how t
 | Frontend | React, Vite, Recharts, i18next, react-router-dom |
 | Auth | Google OAuth 2.0 + HS256 JWT |
 | Infrastructure | Docker (multi-stage build), GCP Cloud Run, Cloud SQL, Cloud Build, Cloud Scheduler, Secret Manager, Artifact Registry |
-| Testing | pytest, DuckDB (in-memory test fixture), 43 tests |
+| Testing | pytest, DuckDB (in-memory test fixture) |
 
 ---
 
 ## Data Engineering Highlights
 
-### 10-Step Automated Ingestion Pipeline
+### 12-Step Automated Ingestion Pipeline
 
-`ingestion/pipeline.py` orchestrates the full chain on a daily Cloud Scheduler cron:
+`ingestion/pipeline.py` orchestrates the full chain on a daily Cloud Scheduler cron (Mon–Fri 04:00 Warsaw on GCP; Mon–Fri 07:00 Warsaw via GitHub Actions on Render):
 
-1. Fetch prices for 55 ETF tickers (yfinance)
+1. Fetch prices for 60+ ETF tickers (yfinance + STOOQ)
 2. Fetch FX rates: EUR/PLN, USD/PLN (NBP API)
 3. Fetch macro series: CPI, yields, credit spreads, LEI components (FRED + ECB SDW)
 4. Fetch sentiment indicators (Finnhub, STOOQ)
 5. Fetch CAPE/Shiller data (155 years of monthly data)
 6. Compute technical features: HAR-RV realized volatility, momentum, mean-reversion signals
 7. Compute macro features: yield curve slope, credit spread z-scores, FX carry, Sahm rule
-8. Generate regime predictions (HMM forward-filter)
-9. Run QC checks: staleness detection, outlier flagging, coverage validation
-10. Write ML predictions to forecast tables (vol, FX, recession, CAPE, regime duration, PCA)
+8. Run QC checks: staleness detection, outlier flagging, coverage validation
+9. Generate HMM regime predictions (Viterbi forward-filter, no look-ahead)
+10. Write ML predictions to forecast tables (vol, FX, recession, CAPE)
+11. Compute Kaplan-Meier survival statistics for regime durations
+12. Compute rolling PCA on 5-asset correlation matrix → diversification index
 
 **Dual-DB abstraction:** a `PH` placeholder variable (`%s` for PostgreSQL, `?` for DuckDB) lets all ingestion modules run against both engines. Tests use an in-memory DuckDB fixture; production uses Cloud SQL. The `_PgAdapter` wrapper makes psycopg2 connections quack like DuckDB connections — no environment-specific code paths.
 
 ### Database
 
-- `raw_prices`: 228k+ rows, 55 tickers, 2010–2026
-- `daily_features`: 3,979 rows, 35+ engineered features per trading day (including 4 LEI columns: Sahm, initial claims, housing permits, INDPRO)
+- `raw_prices`: 236k+ rows, 60+ tickers, 2010–present
+- `daily_features`: ~4,000 rows, 35+ engineered features per trading day (including 4 LEI columns: Sahm, initial claims, housing permits, INDPRO)
 - `hmm_predictions`: monthly HMM state probabilities back to 1880
 - `regime_duration_stats`: Kaplan-Meier survival estimates per regime
 - `user_transactions`, `user_positions`, `ike_contributions`: per-user portfolio state
@@ -139,7 +141,7 @@ Two Gemini models serve distinct roles:
 
 **Gemini 2.5 Flash with Google Search grounding** runs on a weekly Cloud Scheduler job (Sundays 21:00 Warsaw). It searches for current macro news, synthesizes signals from the database, and writes a structured briefing stored in `situation_updates`. A daily "news pulse" (3–5 bullets) refreshes on demand (rate-limited to once per 24h).
 
-**Chat assistant** handles conversational queries. Every request injects: the latest briefing, current ML signal outputs, and up to 10 turns of persistent chat history from the database. The model has tool-use access to four backend functions — `get_signals()`, `get_decision()`, `get_portfolio()`, `get_macro()` — and runs in an agentic loop (up to 5 rounds per turn).
+**Chat assistant** handles conversational queries. Every request injects the latest briefing and up to 10 turns of persistent chat history. The model has tool-use access to four backend functions — `get_signals()`, `get_decision()`, `get_portfolio()`, `get_macro()` — and runs in an agentic loop (up to 8 rounds per turn, 30s wall-clock budget). Uses Gemini 2.5 Flash Lite (500 RPD free tier).
 
 ---
 
@@ -154,14 +156,14 @@ Two Gemini models serve distinct roles:
 
 ## Frontend
 
-Six pages + 7 ML model detail pages built in React + Vite:
+Six top-level pages + 7 ML research detail pages, built in React + Vite:
 
-- **Dashboard** — verdict banner, regime indicator, signal panel (HMM, KM duration, recession, CAPE, valuation context), volatility gauge, FX fan chart, macro snapshot
-- **Decision** — INVEST/DCA/WAIT with plain-language reasons, horizon-dependent return projection
-- **Portfolio** — positions, transaction history, IKE tracker, allocation breakdown charts
-- **History** — price and macro time series with regime overlay, searchable ticker dropdown
-- **Situation Room** — AI market briefing + persistent chat assistant
-- **ML Models** — hub page listing all 7 models with live signal badges; each model has its own dedicated page with 4–5 interactive charts (regime timeline, survival curves, CAPE scatter, recession calibration, etc.), two-level descriptions (plain language ↔ technical), and feature importance visualisations
+- **Dashboard** — navigation hub: calm verdict ("invest your monthly contribution") + cards for every section.
+- **Invest** — long-run S&P real-total-return chart (1871–present, log scale), "what if I had invested X in year Y" historical simulation widget (lump-sum vs DCA), and a horizon-weighted CAPE / momentum / base-rate return projection.
+- **Portfolio** — positions, transaction history, IKE / IKZE / regular contribution tracking, allocation breakdown charts, AI-parsed broker Excel import.
+- **History** — price and macro time series with searchable ticker dropdown.
+- **Situation Room** — Gemini-grounded weekly briefing + persistent chat assistant with tool use.
+- **Research** — hub page listing all 7 ML models with live signal badges + a yellow caveat banner explaining the research-section role. Each model has its own dedicated page with 4–5 interactive charts (HMM regime timeline, KM survival curves, CAPE scatter, recession calibration, PCA correlation heatmap, etc.), two-level descriptions (plain language ↔ technical), and feature importance visualisations.
 
 Fully bilingual (Polish/English) via i18next. Language preference stored in localStorage.
 
@@ -173,13 +175,13 @@ Auto-deploy on every push to `main`:
 
 ```
 git push origin main
-    → Cloud Build trigger fires
+    → Cloud Build trigger fires (region: europe-central2)
     → Docker multi-stage build (Node 20 build + Python 3.11 runtime)
-    → ML model artifacts pulled from GCS bucket
+    → ML model artifacts (committed to repo) baked into the image
     → Cloud Run service updated (~5 minutes end-to-end)
 ```
 
-All secrets stored in Secret Manager and mounted at runtime. Connection pool (min 1, max 20) initialised lazily on first request.
+All secrets stored in Secret Manager and mounted at runtime. Connection pool (min 1, max 20) initialised lazily on first request. The `cloudbuild.yaml` decouples the service name (`inwestowanie-pasywne`) from the service account (`investor-intelligence@...`) so a future rename doesn't churn IAM bindings.
 
 ---
 
@@ -204,20 +206,21 @@ investor_intelligence/
 ├── docs/
 │   └── ML_REFERENCE.md  # Detailed reference: inputs, method, limitations, retrain instructions
 ├── backend/
-│   ├── main.py          # FastAPI app, 30+ routes
+│   ├── main.py          # FastAPI app, 40+ routes
 │   ├── auth.py          # Google OAuth + JWT; open registration (ALLOWED_EMAILS = set())
-│   ├── database.py      # _PgAdapter, ThreadedConnectionPool
+│   ├── database.py      # _PgAdapter, ThreadedConnectionPool, run_migrations()
 │   ├── models.py        # Pydantic schemas
-│   └── routers/         # dashboard, regime, portfolio, pipeline, decision, signals, history, situation
+│   └── routers/         # dashboard, regime, portfolio, pipeline, decision, invest,
+│                        # history, signals, situation, regime_duration, ml_charts
 ├── frontend/
 │   └── src/
-│       ├── pages/       # Dashboard, Decision, Portfolio, History, Situation
-│       ├── components/  # RegimeBar, VolGauge, FXFanChart, SignalPanel
+│       ├── pages/       # Dashboard, Invest, Portfolio, History, Situation + ml/* (7 research pages)
+│       ├── components/  # RegimeBar, VolGauge, FXFanChart, SignalPanel, ml/ChartCard
 │       ├── contexts/    # AuthContext (auto-guest on first visit)
 │       └── locales/     # pl.json, en.json
 ├── db/                  # schema_pg.sql, schema.sql (DuckDB), init_db.py
 ├── cloud/               # Cloud Build config, Scheduler definitions
-├── tests/               # 43 pytest tests, in-memory DuckDB fixture
+├── tests/               # pytest suite, in-memory DuckDB fixture
 ├── Dockerfile           # Multi-stage: Node 20 build + Python 3.11 runtime
 └── shiller.csv          # 1,863 monthly rows, 1871–2026 (Shiller dataset)
 ```

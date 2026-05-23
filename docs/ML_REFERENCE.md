@@ -1,6 +1,6 @@
 # ML Model Reference — Inwestowanie Pasywne
 
-Last updated: 2026-05-22
+Last updated: 2026-05-23
 
 This document describes every predictive model in the system: what it does, what
 data it consumes, what it outputs, how it works mathematically, its known limitations,
@@ -47,10 +47,15 @@ engine and the dashboard.
 | `long_rate` | `shiller.csv` | 10-year US nominal yield |
 
 Training data: Shiller monthly CSV, 1871–present (~1,745 rows).  
-Training window: **full dataset** — all 155 years used for fitting. The pre-2000
-cutoff was removed (2026-05-22): more historical episodes give better transition
-matrix estimates. Look-ahead is prevented by using the **Viterbi forward filter**
-(not backward smoothing) for state assignment.
+Training window: **pre-2000 fit, forward-filter on full history.** The HMM is
+fitted on data before 2000 (~1,429 rows). The trained model is then applied to
+the full 1871–present series via the Viterbi forward filter to assign labels
+without look-ahead. Rationale: a brief experiment in session 18 (2026-05-22)
+removed the cutoff, but training on the full series let pre-WWII variance
+dominate the clusters and labelled 2011–2020 as "bear," which is nonsensical
+for the post-WWII era people actually invest in. Reverted in session 20
+(2026-05-23). Look-ahead is still prevented by the forward filter (not
+backward smoothing).
 
 ### Method
 
@@ -580,6 +585,15 @@ ACWI-GOLD, ACWI-BONDS, ACWI-USD.
 
 **File:** `backend/routers/decision.py`  
 **No artifact** — computed at request time from DB outputs of models 1–6.
+
+**Role in the current UI:** the user-facing **/invest** page does NOT use this
+triadic INVEST/DCA/WAIT logic — that page intentionally shows a calm "invest
+your monthly contribution" headline plus an FX flag and the long-horizon
+projection. The decision engine endpoint is preserved because the Gemini
+chat assistant calls it via `get_decision()` to answer "what do all the
+signals say?" questions, but it is no longer the user's primary recommendation.
+See [`backend/routers/invest.py`](../backend/routers/invest.py) for the
+current /invest endpoints.
 
 ### Logic
 
