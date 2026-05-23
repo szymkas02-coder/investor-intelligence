@@ -82,16 +82,10 @@ def fetch_stooq(stooq_symbol: str) -> pd.DataFrame:
         if col not in df.columns:
             df[col] = None
 
-    # WHY: Index tickers like ^dax have no volume — STOOQ returns NaN.
-    # DuckDB raw_prices.volume is BIGINT so we must convert NaN → None
-    # (Python None maps to SQL NULL) before inserting, otherwise DuckDB
-    # raises a cast error trying to fit float('nan') into INT64.
-    # Convert NaN volume to None — index tickers (^dax) have no volume data
-    # for recent dates before official close. Using pd.NA + object dtype keeps
-    # None as Python None when iterating rows, avoiding numpy's NaN→float trap.
-    df["volume"] = df["volume"].where(df["volume"].notna(), other=pd.NA)
-    df["volume"] = df["volume"].astype(object)
-
+    # Index tickers like ^dax have no volume — STOOQ returns NaN. The volume
+    # column needs to round-trip to SQL NULL on insert, which means it has to
+    # be Python None by the time psycopg2 sees it. We keep the column as-is
+    # here (mixed numeric + NaN) and let _clean() in upsert_prices normalise.
     return df[["date", "open", "high", "low", "close", "adj_close", "volume"]]
 
 
@@ -101,13 +95,19 @@ def upsert_prices(conn, df: pd.DataFrame, ticker: str) -> int:
     df = df.copy()
     df["ticker"] = ticker
     df["source"] = SOURCE
-    import math
 
     def _clean(v):
-        if v is None:
+        # pd.isna catches None, float NaN, and pd.NA (the NAType from
+        # pandas nullable dtypes). psycopg2 can't adapt pd.NA -> SQL NULL
+        # on its own, so we explicitly convert any missing-value marker
+        # to Python None before passing rows to executemany.
+        if v is pd.NaT:
             return None
-        if isinstance(v, float) and math.isnan(v):
-            return None
+        try:
+            if pd.isna(v):
+                return None
+        except (ValueError, TypeError):
+            pass
         return v
 
     rows = [
