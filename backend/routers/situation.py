@@ -25,7 +25,7 @@ GEMINI_API_KEY  = os.getenv("GEMINI_API_KEY", "")
 PIPELINE_SECRET = os.getenv("PIPELINE_SECRET", "")
 
 SITUATION_MODEL = "gemini-2.5-flash"  # best free-tier model, supports Search grounding; 20 RPD (we use ~5/day)
-CHAT_MODEL      = "gemini-3.1-flash-lite"  # 500 RPD, confirmed working — good for interactive chat
+CHAT_MODEL      = "gemini-2.5-flash-lite"  # 500 RPD, confirmed working — good for interactive chat
 
 PULSE_PROMPT = """You are a macro analyst. Search the web for the latest economic and market news from the last 24 hours.
 
@@ -74,54 +74,6 @@ def _get_genai_client():
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured.")
     from google import genai
     return genai.Client(api_key=GEMINI_API_KEY)
-
-
-def _get_app_context(db) -> str:
-    """Build a short text summary of current app signals to inject into chat."""
-    try:
-        # Latest decision signal
-        dec = db.execute("""
-            SELECT regime_pred, prob_risk_on, prob_risk_off
-            FROM regime_predictions
-            ORDER BY date DESC, predicted_at DESC LIMIT 1
-        """).fetchone()
-
-        vol = db.execute("""
-            SELECT vol_forecast FROM volatility_forecasts
-            WHERE horizon_days = 21
-            ORDER BY date DESC, predicted_at DESC LIMIT 1
-        """).fetchone()
-
-        macro = db.execute("""
-            SELECT vix_close, cpi_us_yoy, fed_funds_rate, eurpln, spread_10y_2y
-            FROM daily_features
-            WHERE vix_close IS NOT NULL
-            ORDER BY date DESC LIMIT 1
-        """).fetchone()
-
-        rec = db.execute("""
-            SELECT recession_prob FROM recession_predictions
-            ORDER BY date DESC, predicted_at DESC LIMIT 1
-        """).fetchone()
-
-        def fmt(v, spec):
-            return format(v, spec) if v is not None else "n/a"
-
-        lines = ["=== Current App Signals ==="]
-        if dec:
-            lines.append(f"Regime: {dec[0]} (risk-on prob: {fmt(dec[1], '.0%')}, risk-off prob: {fmt(dec[2], '.0%')})")
-        if vol:
-            lines.append(f"21-day volatility forecast: {fmt(vol[0], '.1%')}")
-        if macro:
-            lines.append(f"VIX: {fmt(macro[0], '.1f')} | CPI US YoY: {fmt(macro[1], '.1%')} | Fed rate: {fmt(macro[2], '.2%')}")
-            lines.append(f"EUR/PLN: {fmt(macro[3], '.4f')} | Yield curve spread (10y-2y): {fmt(macro[4], '.2%')}")
-        if rec:
-            lines.append(f"Recession probability: {fmt(rec[0], '.0%')}")
-
-        return "\n".join(lines)
-    except Exception as e:
-        logger.warning(f"Could not fetch app context: {e}")
-        return ""
 
 
 def _get_latest_briefings(db) -> tuple[str, str]:
@@ -297,11 +249,13 @@ def get_chat_history(
 # ---------------------------------------------------------------------------
 
 def _tool_get_signals(db) -> dict:
-    """Return current ML signals."""
+    """Return current ML signals: HMM regime, vol, recession, CAPE."""
     try:
-        regime = db.execute("""
-            SELECT date, regime_pred, prob_risk_on, prob_risk_off, prob_stagflation, prob_deflation
-            FROM regime_predictions ORDER BY date DESC, predicted_at DESC LIMIT 1
+        from backend.hmm_utils import resolve_hmm_probs
+
+        hmm = db.execute("""
+            SELECT date, state_label, prob_bull, prob_bear, prob_consolidation
+            FROM hmm_predictions ORDER BY date DESC, predicted_at DESC LIMIT 1
         """).fetchone()
         vol = db.execute("""
             SELECT horizon_days, vol_forecast FROM volatility_forecasts
@@ -316,11 +270,16 @@ def _tool_get_signals(db) -> dict:
             ORDER BY date DESC LIMIT 1
         """).fetchone()
         result = {}
-        if regime:
+        if hmm:
+            state, p_bull, p_bear, p_cons, p_stag = resolve_hmm_probs(
+                hmm[1], hmm[2], hmm[3], hmm[4]
+            )
             result["regime"] = {
-                "date": str(regime[0]), "label": regime[1],
-                "prob_risk_on": round(regime[2], 3), "prob_risk_off": round(regime[3], 3),
-                "prob_stagflation": round(regime[4], 3), "prob_deflation": round(regime[5], 3),
+                "date": str(hmm[0]), "state": state,
+                "prob_bull": round(p_bull, 3),
+                "prob_bear": round(p_bear, 3),
+                "prob_consolidation": round(p_cons, 3),
+                "prob_stagflation": round(p_stag, 3),
             }
         if vol:
             result["volatility"] = [{"horizon_days": r[0], "forecast_annualised": round(r[1], 4)} for r in vol]
@@ -334,34 +293,54 @@ def _tool_get_signals(db) -> dict:
 
 
 def _tool_get_decision(db) -> dict:
-    """Return current monthly investment recommendation."""
+    """Return current monthly investment recommendation (mirrors /decision endpoint)."""
     try:
         from backend.routers.decision import _make_decision
-        regime_row = db.execute("""
-            SELECT date, prob_risk_off, prob_stagflation FROM regime_predictions
-            ORDER BY date DESC, predicted_at DESC LIMIT 1
+        from backend.hmm_utils import resolve_hmm_probs
+
+        hmm_row = db.execute("""
+            SELECT date, state_label, prob_bull, prob_bear, prob_consolidation
+            FROM hmm_predictions ORDER BY date DESC, predicted_at DESC LIMIT 1
         """).fetchone()
+        if not hmm_row:
+            return {"error": "No HMM regime data available"}
+        _, _, prob_bear, _, prob_stagflation = resolve_hmm_probs(
+            hmm_row[1], hmm_row[2], hmm_row[3], hmm_row[4]
+        )
+
+        rec_row = db.execute("""
+            SELECT recession_prob FROM recession_predictions
+            ORDER BY date DESC LIMIT 1
+        """).fetchone()
+        recession_prob = float(rec_row[0] or 0) if rec_row else 0.0
+
         vol_row = db.execute("""
             SELECT vol_forecast FROM volatility_forecasts
             WHERE ticker = 'VWCE.DE' AND horizon_days = 21 ORDER BY date DESC LIMIT 1
         """).fetchone()
+        vol_21d = float(vol_row[0]) if vol_row else None
+
         fx_row = db.execute("""
             SELECT rate_point, rate_upper FROM fx_forecasts
             WHERE pair = 'USDPLN' AND horizon_days = 21 ORDER BY date DESC LIMIT 1
         """).fetchone()
-        macro_row = db.execute("""
-            SELECT usdpln FROM daily_features WHERE usdpln IS NOT NULL ORDER BY date DESC LIMIT 1
-        """).fetchone()
+        usdpln_upper = float(fx_row[1]) if fx_row else None
 
-        if not regime_row:
-            return {"error": "No regime data available"}
+        macro_row = db.execute("""
+            SELECT usdpln, spread_10y_3m FROM daily_features
+            WHERE usdpln IS NOT NULL ORDER BY date DESC LIMIT 1
+        """).fetchone()
+        usdpln_current = float(macro_row[0]) if macro_row and macro_row[0] is not None else None
+        spread_10y_3m  = float(macro_row[1]) if macro_row and macro_row[1] is not None else None
 
         action, confidence, reasons, flags = _make_decision(
-            prob_risk_off    = float(regime_row[1] or 0),
-            prob_stagflation = float(regime_row[2] or 0),
-            vol_21d          = float(vol_row[0]) if vol_row else None,
-            usdpln_current   = float(macro_row[0]) if macro_row else None,
-            usdpln_upper_21d = float(fx_row[1]) if fx_row else None,
+            prob_bear        = prob_bear,
+            prob_stagflation = prob_stagflation,
+            recession_prob   = recession_prob,
+            spread_10y_3m    = spread_10y_3m,
+            vol_21d          = vol_21d,
+            usdpln_current   = usdpln_current,
+            usdpln_upper_21d = usdpln_upper,
         )
         return {"action": action, "confidence": confidence, "reasons": reasons, "flags": flags}
     except Exception as e:
@@ -460,7 +439,12 @@ def chat(
         "They invest ~500 PLN/month and make monthly decisions: invest now, DCA, or wait.",
         "Answer concisely and in the same language the user writes in (Polish or English).",
         "Do not give personalised financial advice — explain data and context instead.",
-        "Use the available tools to fetch live data when the user asks about signals, portfolio, macro, or the monthly decision.",
+        "",
+        "TOOL USE — STRICT RULES:",
+        "• Whenever the user asks about ANY live numeric value (regime, probabilities, CAPE, volatility, recession, decision, portfolio, macro, FX, yields), you MUST call the relevant tool first. Never state numbers from memory or guesswork.",
+        "• If a question touches multiple domains (e.g. \"regime AND recession AND CAPE\"), call EACH relevant tool — you can call them in sequence across multiple rounds before answering.",
+        "• After collecting all needed tool data, produce a single final text reply citing the actual numbers returned.",
+        "• If a tool returns {\"error\": ...}, mention briefly that the data is unavailable rather than inventing values.",
     ]
     if briefing_txt:
         system_parts += ["", "=== Latest Weekly Briefing ===", briefing_txt]
@@ -473,7 +457,7 @@ def chat(
     tools = [types.Tool(function_declarations=[
         types.FunctionDeclaration(
             name="get_signals",
-            description="Get current ML model signals: market regime (LightGBM), volatility forecast, recession probability, and CAPE 10Y return estimate.",
+            description="Get current ML model signals: HMM regime state with bull/bear/consolidation/stagflation probabilities, volatility forecast (21d and 63d), recession probability, and CAPE-based 10Y real return estimate.",
             parameters=types.Schema(type="OBJECT", properties={}, required=[]),
         ),
         types.FunctionDeclaration(
@@ -505,23 +489,44 @@ def chat(
         parts=[types.Part(text=req.message)]
     ))
 
-    # Agentic loop: let Gemini call tools until it produces a final text response
-    MAX_TOOL_ROUNDS = 5
-    reply = None
+    # Agentic loop: let Gemini call tools (possibly several in sequence) until
+    # it produces a final text response. Bounded by round count AND wall-clock
+    # so a slow/looping model can't hang the request.
+    import time
+    MAX_TOOL_ROUNDS    = 8
+    WALL_CLOCK_TIMEOUT = 30.0   # seconds
+    started_at         = time.monotonic()
+    reply              = None
 
-    for _ in range(MAX_TOOL_ROUNDS):
-        try:
-            response = client.models.generate_content(
-                model=CHAT_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    tools=tools,
-                    temperature=0.7,
-                ),
-            )
-        except Exception as e:
-            raise HTTPException(status_code=502, detail=f"AI error: {e}")
+    tool_calls_made: list[str] = []   # for logging
+    for round_idx in range(MAX_TOOL_ROUNDS):
+        if time.monotonic() - started_at > WALL_CLOCK_TIMEOUT:
+            logger.warning(f"chat: agentic loop hit {WALL_CLOCK_TIMEOUT}s timeout after {round_idx} rounds (tools used: {tool_calls_made})")
+            break
+        # Light retry on transient Gemini throttling (503 UNAVAILABLE).
+        response = None
+        last_err: Optional[Exception] = None
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model=CHAT_MODEL,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        tools=tools,
+                        temperature=0.3,
+                    ),
+                )
+                break
+            except Exception as e:
+                last_err = e
+                msg = str(e)
+                if "UNAVAILABLE" in msg or "503" in msg:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+                raise HTTPException(status_code=502, detail=f"AI error: {e}")
+        if response is None:
+            raise HTTPException(status_code=503, detail=f"Gemini busy after retries: {last_err}")
 
         # Check if model wants to call tools
         tool_calls = [p for part in response.candidates[0].content.parts
@@ -529,6 +534,7 @@ def chat(
         if not tool_calls:
             # Final text response
             reply = response.text
+            logger.info(f"chat: completed in {round_idx + 1} round(s), tools used: {tool_calls_made or 'none'}")
             break
 
         # Append model's tool-call turn to contents
@@ -540,6 +546,7 @@ def chat(
             if not (hasattr(part, 'function_call') and part.function_call):
                 continue
             fn_name = part.function_call.name
+            tool_calls_made.append(fn_name)
             fn_result = _TOOL_DISPATCH.get(fn_name, lambda db, uid: {"error": "unknown tool"})(db, user_id)
             tool_response_parts.append(types.Part(
                 function_response=types.FunctionResponse(
@@ -551,7 +558,11 @@ def chat(
         contents.append(types.Content(role="tool", parts=tool_response_parts))
 
     if reply is None:
-        reply = "Sorry, I couldn't generate a response."
+        reply = (
+            "Przepraszam, nie zdążyłem dokończyć odpowiedzi (limit narzędzi/czasu)."
+            if any(c in req.message for c in "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ") else
+            "Sorry, I couldn't finish the response in the allotted time/tool budget."
+        )
 
     # Persist this turn to DB
     db.execute(

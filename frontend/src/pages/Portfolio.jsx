@@ -293,23 +293,64 @@ export default function Portfolio() {
   return (
     <div className="portfolio-page">
 
-      {/* IKE status */}
-      {data && (
-        <div className="card ike-card">
-          <h3>{t('portfolio.ikeContributions', { year: new Date().getFullYear() })}</h3>
-          <div className="ike-bar-wrap">
-            <div className="ike-bar" style={{ width: data.ike_limit
-              ? `${Math.min(100, (data.ike_contributed / data.ike_limit) * 100).toFixed(0)}%` : '0%' }} />
-          </div>
-          <p>
-            <strong>{data.ike_contributed?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) ?? 0} PLN</strong>
-            {data.ike_limit && <>
-              {' '}{t('portfolio.ikeContributed', { limit: data.ike_limit.toLocaleString('pl-PL') })}
-              &nbsp;(<strong>{t('portfolio.ikeRemaining', { remaining: data.ike_remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }) })}</strong>)
-            </>}
-          </p>
-          <p className="ike-history-note">{t('portfolio.ikeTrackingNote')}</p>
+      {/* Annual contribution status per account type (IKE / IKZE / regular) */}
+      {data?.accounts && data.accounts.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
+          {data.accounts.map(acc => {
+            const pct = acc.limit
+              ? Math.min(100, (acc.contributed / acc.limit) * 100)
+              : null
+            const barColor = pct == null
+              ? '#94a3b8'
+              : pct >= 90 ? '#22c55e' : pct >= 50 ? '#3b82f6' : '#f59e0b'
+            const accentColor = acc.account_type === 'IKE' ? '#3b82f6'
+              : acc.account_type === 'IKZE' ? '#8b5cf6'
+              : '#64748b'
+            return (
+              <div key={acc.account_type} className="card" style={{ marginBottom: 0, borderTop: `3px solid ${accentColor}` }}>
+                <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem' }}>
+                  {acc.account_type}
+                  <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#94a3b8', marginLeft: '0.4rem' }}>
+                    {t('portfolio.accountYear', { year: acc.year, defaultValue: acc.year })}
+                  </span>
+                </h3>
+                {acc.limit != null ? (
+                  <>
+                    <div style={{ height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', marginBottom: '0.55rem' }}>
+                      <div style={{ height: '100%', width: `${pct.toFixed(0)}%`, background: barColor, transition: 'width 0.4s' }} />
+                    </div>
+                    <p style={{ fontSize: '0.82rem', margin: 0, color: '#475569' }}>
+                      <strong style={{ color: '#0f172a' }}>
+                        {acc.contributed.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
+                      </strong>
+                      {' '}/ {acc.limit.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
+                      <br />
+                      <span style={{ color: barColor, fontWeight: 600 }}>
+                        {t('portfolio.accountRemaining', {
+                          remaining: acc.remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 }),
+                          defaultValue: `${acc.remaining?.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN left`,
+                        })}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ fontSize: '0.82rem', margin: 0, color: '#475569' }}>
+                    <strong style={{ color: '#0f172a' }}>
+                      {acc.contributed.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} PLN
+                    </strong>
+                    <br />
+                    <span style={{ color: '#94a3b8', fontSize: '0.76rem' }}>
+                      {t('portfolio.accountNoLimit', { defaultValue: 'No annual limit' })}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )
+          })}
         </div>
+      )}
+      {data && (
+        <p className="ike-history-note" style={{ marginTop: 0 }}>{t('portfolio.ikeTrackingNote')}</p>
       )}
 
       {/* IKE multi-year history */}

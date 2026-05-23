@@ -565,7 +565,7 @@ def cape_current_signal(db: Annotated[object, Depends(get_db)]):
 
     return {
         "date": str(row[0]),
-        "cape": float(row[1]),
+        "cape": round(float(row[1]), 1),
         "q10": round(float(row[2]) * 100, 2),
         "q50": round(float(row[3]) * 100, 2),
         "q90": round(float(row[4]) * 100, 2),
@@ -636,10 +636,15 @@ def cape_feature_plane():
 def recession_history(db: Annotated[object, Depends(get_db)]):
     """Recession probability history with USREC shading bands."""
     rows = db.execute("""
+        WITH latest AS (
+            SELECT model_version FROM recession_predictions
+            ORDER BY predicted_at DESC NULLS LAST, date DESC LIMIT 1
+        )
         SELECT rp.date, rp.recession_prob, rm.value AS usrec
         FROM recession_predictions rp
         LEFT JOIN raw_macro rm ON rm.date = DATE_TRUNC('month', rp.date)
                                AND rm.series_id = 'USREC'
+        WHERE rp.model_version = (SELECT model_version FROM latest)
         ORDER BY rp.date
     """).fetchall()
 
@@ -733,26 +738,42 @@ def recession_yield_curve(db: Annotated[object, Depends(get_db)]):
 
 @router.get("/recession/calibration")
 def recession_calibration(db: Annotated[object, Depends(get_db)]):
-    """Reliability diagram: binned predicted prob vs actual recession frequency."""
+    """Reliability diagram: binned predicted prob vs actual recession frequency.
+
+    Uses quantile binning rather than fixed-width: the model's outputs are
+    strongly right-skewed (most days near 0), so fixed 10% bins leave most
+    buckets empty. Quantile bins put equal sample counts per point and
+    actually exercise the chart.
+    """
     rows = db.execute("""
+        WITH latest AS (
+            SELECT model_version FROM recession_predictions
+            ORDER BY predicted_at DESC NULLS LAST, date DESC LIMIT 1
+        )
         SELECT rp.recession_prob, rm.value AS usrec
         FROM recession_predictions rp
         LEFT JOIN raw_macro rm ON rm.date = DATE_TRUNC('month', rp.date)
                                AND rm.series_id = 'USREC'
         WHERE rp.recession_prob IS NOT NULL
+          AND rp.model_version = (SELECT model_version FROM latest)
     """).fetchall()
+
+    if not rows:
+        return {"calibration": [], "perfect_line": [{"x": 0, "y": 0}, {"x": 1, "y": 1}]}
 
     probs  = np.array([float(r[0]) for r in rows])
     actual = np.array([float(r[1]) if r[1] is not None else 0.0 for r in rows])
 
-    bins = np.linspace(0, 1, 11)
+    # Quantile-based bins (8 buckets, equal sample count)
+    n_bins = 8
+    edges = np.unique(np.quantile(probs, np.linspace(0, 1, n_bins + 1)))
     points = []
-    for lo, hi in zip(bins[:-1], bins[1:]):
-        mask = (probs >= lo) & (probs < hi)
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        mask = (probs >= lo) & (probs <= hi if hi == edges[-1] else probs < hi)
         if mask.sum() >= 5:
             points.append({
-                "bin_center": round(float((lo + hi) / 2), 2),
-                "mean_predicted": round(float(probs[mask].mean()), 3),
+                "bin_center":       round(float((lo + hi) / 2), 3),
+                "mean_predicted":   round(float(probs[mask].mean()), 3),
                 "actual_frequency": round(float(actual[mask].mean()), 3),
                 "n": int(mask.sum()),
             })
@@ -976,25 +997,37 @@ def pca_by_regime(db: Annotated[object, Depends(get_db)]):
 
 @router.get("/pca/current-heatmap")
 def pca_current_heatmap(db: Annotated[object, Depends(get_db)]):
-    """Current 5-asset pairwise correlation matrix (most recent window)."""
+    """Current pairwise correlation matrix (most recent window).
+
+    correlation_pca.py stores pairs as "ACWI-GOLD" (uppercase, dash separator).
+    We mirror across the diagonal so the heatmap fills in completely.
+    """
     rows = db.execute("""
         SELECT asset_pair, correlation
         FROM correlation_stats
         WHERE computed_date = (SELECT MAX(computed_date) FROM correlation_stats)
     """).fetchall()
 
-    pairs = {r[0]: round(float(r[1]), 3) for r in rows if r[1] is not None}
-    assets = ["ACWI", "Gold", "Bonds", "USD", "VIX"]
+    pairs_raw = {r[0]: round(float(r[1]), 3) for r in rows if r[1] is not None}
 
-    matrix = []
-    for a in assets:
-        for b in assets:
-            key1 = f"{a}/{b}"
-            key2 = f"{b}/{a}"
-            val = 1.0 if a == b else pairs.get(key1, pairs.get(key2))
-            matrix.append({"row": a, "col": b, "value": val})
+    # Display label -> storage label (mixed case for UI, uppercase in DB).
+    display_to_storage = {
+        "ACWI":  "ACWI",
+        "Gold":  "GOLD",
+        "Bonds": "BONDS",
+        "USD":   "USD",
+        "VIX":   "VIX",
+    }
+    assets = list(display_to_storage.keys())
 
-    return {"matrix": matrix, "assets": assets, "pairs": pairs}
+    def lookup(a: str, b: str):
+        if a == b:
+            return 1.0
+        sa, sb = display_to_storage[a], display_to_storage[b]
+        return pairs_raw.get(f"{sa}-{sb}", pairs_raw.get(f"{sb}-{sa}"))
+
+    matrix = [{"row": a, "col": b, "value": lookup(a, b)} for a in assets for b in assets]
+    return {"matrix": matrix, "assets": assets, "pairs": pairs_raw}
 
 
 # ─── SUMMARY (hub page) ──────────────────────────────────────────────────────
@@ -1053,9 +1086,10 @@ def ml_summary(db: Annotated[object, Depends(get_db)]):
         "usdpln_q90": round(float(fx_row[3]), 4) if fx_row and fx_row[3] else None,
     }
 
-    # 5. Recession
+    # 5. Recession (pick latest by predicted_at to avoid mixing model versions)
     rec_row = db.execute("""
-        SELECT date, recession_prob FROM recession_predictions ORDER BY date DESC LIMIT 1
+        SELECT date, recession_prob FROM recession_predictions
+        ORDER BY predicted_at DESC NULLS LAST, date DESC LIMIT 1
     """).fetchone()
     result["recession"] = {
         "date": str(rec_row[0]) if rec_row else None,

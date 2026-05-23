@@ -123,9 +123,25 @@ export default function HMMPage() {
       <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.2rem' }}>
         🔄 {pl ? 'Reżim rynkowy — GaussianHMM' : 'Market Regime — GaussianHMM'}
       </h1>
-      <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+      <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1rem' }}>
         {pl ? '4 stany · 155 lat danych Shillera · całkowicie nienadzorowany' : '4 states · 155 years of Shiller data · fully unsupervised'}
       </p>
+
+      <div style={{
+        marginBottom: '1.5rem',
+        padding: '0.85rem 1.1rem',
+        background: '#fef3c7',
+        borderLeft: '4px solid #f59e0b',
+        borderRadius: 6,
+        fontSize: '0.82rem',
+        lineHeight: 1.55,
+        color: '#78350f',
+      }}>
+        <strong>{pl ? 'Ograniczenia modelu.' : 'Model limitations.'}</strong>{' '}
+        {pl
+          ? 'Model jest trenowany na pełnym zakresie danych Shillera (1871–dziś). Rynek akcji po 1990 jest strukturalnie inny niż w XIX wieku i pierwszej połowie XX (stopy procentowe, skład sektorowy, skup własnych akcji, globalizacja, dominacja spółek technologicznych). Model traktuje te epoki jako porównywalne — w rzeczywistości nie są. Etykiety stanów ("bull"/"bear"/"stagflation"/"consolidation") przypisano post-hoc według średniej stopy zwrotu w klastrze i mogą nie odpowiadać intuicyjnemu znaczeniu tych słów (np. okres 2011–2020 zostaje przypisany do stanu o najniższym względnym zwrocie w pełnym zakresie historycznym, mimo że był to długi rynek byka). Traktuj tę stronę jako demonstrację techniki HMM, nie jako sygnał inwestycyjny.'
+          : 'This model is trained on the full Shiller dataset (1871–present). The post-1990 equity market is structurally different from the 19th century and the first half of the 20th (rates, sector composition, buybacks, globalisation, dominance of technology firms). The model treats these eras as comparable — they are not. State labels ("bull"/"bear"/"stagflation"/"consolidation") are assigned post-hoc by ranking clusters by mean return and may not match the intuitive meaning of those words (e.g. 2011–2020 ends up in the lowest-relative-return cluster across full history, despite being a long bull market). Treat this page as a demonstration of HMM regime detection, not as a market signal.'}
+      </div>
 
       {/* Current state */}
       <ChartCard

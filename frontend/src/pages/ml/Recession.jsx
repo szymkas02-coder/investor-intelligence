@@ -39,7 +39,16 @@ export default function RecessionPage() {
   const { data: yieldCurve }  = useQuery({ queryKey: ['rec-yield'],    queryFn: () => fetch('/ml/recession/yield-curve') })
   const { data: calibration } = useQuery({ queryKey: ['rec-calib'],    queryFn: () => fetch('/ml/recession/calibration') })
 
-  const tickFmt = d => d?.slice(0, 7)
+  // Year-only ticks for the long daily-resolution charts.
+  // tickFmt extracts the year; tickProps space them out so labels don't overlap.
+  const tickFmt = d => d?.slice(0, 4)
+  const dailyTickProps = (rows, fontSize = 10) => {
+    // Aim for ~10 labels regardless of row count.
+    const n = rows?.length ?? 0
+    const desired = 10
+    const interval = n > desired ? Math.floor(n / desired) : 0
+    return { dataKey: 'date', tickFormatter: tickFmt, tick: { fontSize }, interval, minTickGap: 24 }
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem' }}>
@@ -68,7 +77,7 @@ export default function RecessionPage() {
           history?.data ? (
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={history.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <XAxis dataKey="date" tickFormatter={tickFmt} tick={{ fontSize: 10 }} interval={35} />
+                <XAxis {...dailyTickProps(history.data)} />
                 <YAxis tickFormatter={v => `${(v * 100).toFixed(0)}%`} domain={[0, 1]} tick={{ fontSize: 10 }} />
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <Tooltip formatter={(v, n) => n === 'prob' ? `${(v * 100).toFixed(1)}%` : v} contentStyle={{ fontSize: '0.75rem' }} />
@@ -94,7 +103,7 @@ export default function RecessionPage() {
           yieldCurve?.data ? (
             <ResponsiveContainer width="100%" height={240}>
               <ComposedChart data={yieldCurve.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <XAxis dataKey="date" tickFormatter={tickFmt} tick={{ fontSize: 10 }} interval={59} />
+                <XAxis {...dailyTickProps(yieldCurve.data)} />
                 <YAxis tick={{ fontSize: 10 }} label={{ value: 'spread %', angle: -90, position: 'insideLeft', fontSize: 10 }} />
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <Tooltip formatter={v => `${v?.toFixed(2)}%`} contentStyle={{ fontSize: '0.75rem' }} />

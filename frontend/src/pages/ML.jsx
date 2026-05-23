@@ -153,13 +153,29 @@ export default function ML() {
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem' }}>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginBottom: '0.3rem' }}>
-        {pl ? 'Modele ML' : 'ML Models'}
+        {pl ? 'Research — modele ML' : 'Research — ML Models'}
       </h1>
-      <p style={{ color: '#64748b', marginBottom: '2rem', fontSize: '0.9rem' }}>
+      <p style={{ color: '#64748b', marginBottom: '1rem', fontSize: '0.9rem' }}>
         {pl
           ? '7 niezależnych modeli predykcyjnych — każdy odpowiada na inne pytanie. Kliknij model, aby zobaczyć wykresy i szczegóły.'
           : '7 independent predictive models — each answers a different question. Click a model to see charts and details.'}
       </p>
+
+      <div style={{
+        marginBottom: '1.75rem',
+        padding: '0.85rem 1.1rem',
+        background: '#fef3c7',
+        borderLeft: '4px solid #f59e0b',
+        borderRadius: 6,
+        fontSize: '0.82rem',
+        lineHeight: 1.55,
+        color: '#78350f',
+      }}>
+        <strong>{pl ? 'Sekcja badawcza.' : 'Research section.'}</strong>{' '}
+        {pl
+          ? 'Modele poniżej zostały zbudowane jako demonstracja technik ML (HMM, KM, RF, LightGBM, kalibracja izotoniczna, PCA). Nie napędzają one rekomendacji inwestycyjnej aplikacji — ta pozostaje prosta: globalna dywersyfikacja, regularne wpłaty, ignorowanie krótkoterminowych sygnałów. Modele mają ograniczenia (np. HMM nie odróżnia środowiska rynkowego XIX wieku od XXI), opisane na każdej stronie.'
+          : 'The models below were built as a demonstration of ML techniques (HMM, KM, RF, LightGBM, isotonic calibration, PCA). They do not drive the app\'s investment recommendation — that remains simple: be globally diversified, contribute monthly, ignore short-term signals. The models have limitations (e.g. the HMM cannot distinguish the 19th-century equity environment from the 21st), documented on each page.'}
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1rem' }}>
         {MODELS.map(m => (

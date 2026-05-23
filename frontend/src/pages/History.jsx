@@ -9,21 +9,6 @@ import {
 } from 'recharts'
 import client from '../api/client'
 
-const REGIME_COLOR = {
-  bull:          '#22c55e',
-  consolidation: '#3b82f6',
-  stagflation:   '#f97316',
-  bear:          '#ef4444',
-}
-
-// Legacy color map for any old dots still in DB (not shown in legend)
-const REGIME_COLOR_ALL = {
-  ...REGIME_COLOR,
-  risk_on:  '#22c55e',
-  risk_off: '#ef4444',
-  deflation: '#a855f7',
-}
-
 const tickerLabel = (ticker, tickerList) => {
   const found = tickerList?.find(x => x.ticker === ticker)
   return found?.name && found.name !== ticker ? `${found.name} (${ticker})` : ticker
@@ -41,7 +26,6 @@ const DAY_OPTIONS = [
 const fetchData = (url) => client.get(url).then(r => r.data)
 const fetchTickers = ()             => fetchData('/tickers')
 const fetchPrices  = (t, d)         => fetchData(`/history/prices?ticker=${t}&days=${d}`)
-const fetchRegime  = (d)            => fetchData(`/history/regime?days=${d}`)
 const fetchMacro   = (series, d)    => fetchData(`/history/macro?series=${series}&days=${d}`)
 const fetchFX      = (d)            => fetchData(`/history/fx?days=${d}`)
 const fetchCAPE    = (d)            => fetchData(`/history/cape?days=${d}`)
@@ -69,22 +53,14 @@ function pickTicks(rows, days, n = 10) {
   return rows.filter((_, i) => i % step === 0 || i === rows.length - 1).map(r => r.date)
 }
 
-function mergeOverlay(priceRows, regimeRows) {
-  const map = {}
-  for (const r of regimeRows) map[r.date] = r.regime
+function withCumulativeReturn(priceRows) {
   const base = priceRows[0]?.price_pln
   return priceRows.map(p => ({
     ...p,
-    regime:         map[p.date] ?? null,
     cum_return_pct: base && p.price_pln != null
                       ? +((p.price_pln / base - 1) * 100).toFixed(2)
                       : null,
   }))
-}
-
-function RegimeDot({ cx, cy, payload }) {
-  if (!payload?.regime) return null
-  return <circle cx={cx} cy={cy} r={3} fill={REGIME_COLOR_ALL[payload.regime] ?? '#6b7280'} fillOpacity={0.8} />
 }
 
 function SectionHeader({ title, subtitle }) {
@@ -140,14 +116,13 @@ export default function History() {
   const availableTickers = tickersData ?? []
 
   const refetchAll = () => {
-    ['hp','hr','hrat','hcpi','hrisk','hfx','hcape','hlab','hgold'].forEach(k =>
+    ['hp','hrat','hcpi','hrisk','hfx','hcape','hlab','hgold'].forEach(k =>
       queryClient.invalidateQueries({ queryKey: [k] })
     )
   }
 
   const q = { staleTime: 5 * 60 * 1000, retry: false }
   const { data: priceData,  isLoading: pl,   isError: pe  } = useQuery({ queryKey: ['hp',    ticker, days], queryFn: () => fetchPrices(ticker, days),                            ...q })
-  const { data: regimeData, isLoading: rl,   isError: re  } = useQuery({ queryKey: ['hr',    days],         queryFn: () => fetchRegime(days),                                    ...q })
   const { data: rateData,   isLoading: ral,  isError: rae } = useQuery({ queryKey: ['hrat',  days],         queryFn: () => fetchMacro('fed_funds_rate,ecb_rate,nbp_rate', days), ...q })
   const { data: cpiData,    isLoading: cl,   isError: ce  } = useQuery({ queryKey: ['hcpi',  days],         queryFn: () => fetchMacro('cpi_us_yoy,cpi_ea_yoy,cpi_pl_yoy', days), ...q })
   const { data: riskData,   isLoading: rsl,  isError: rse } = useQuery({ queryKey: ['hrisk', days],         queryFn: () => fetchMacro('vix_close,spread_10y_3m,hy_spread', days), ...q })
@@ -156,10 +131,9 @@ export default function History() {
   const { data: laborData,  isLoading: ll,   isError: le  } = useQuery({ queryKey: ['hlab',  days],         queryFn: () => fetchMacro('unemployment_us', days),                  ...q })
   const { data: goldData,   isLoading: gl,   isError: ge  } = useQuery({ queryKey: ['hgold', days],         queryFn: () => fetchMacro('gold_ret_21d', days),                     ...q })
 
-  const anyError = pe || re || rae || ce || rse || fxe || cpe || le || ge
+  const anyError = pe || rae || ce || rse || fxe || cpe || le || ge
 
   const priceRows  = priceData?.rows  ?? []
-  const regimeRows = regimeData?.rows ?? []
   const rateRows   = rateData?.rows   ?? []
   const cpiRows    = cpiData?.rows    ?? []
   const fxRows     = fxData?.rows     ?? []
@@ -169,15 +143,7 @@ export default function History() {
     ...r, gold_ret_21d_pct: r.gold_ret_21d != null ? +(r.gold_ret_21d * 100).toFixed(3) : null
   }))
   const riskRows   = (riskData?.rows  ?? []).map(r => ({ ...r, hy_spread_pct: r.hy_spread }))
-  const merged     = mergeOverlay(priceRows, regimeRows)
-
-  // Regime labels — 4 active HMM states only (legend uses these)
-  const REGIME_LABEL = {
-    bull:          t('signals.bull'),
-    consolidation: t('signals.consolidation'),
-    stagflation:   t('signals.stagflation'),
-    bear:          t('signals.bear'),
-  }
+  const merged     = withCumulativeReturn(priceRows)
 
   return (
     <div className="history-page">
@@ -249,7 +215,7 @@ export default function History() {
           title={`${tickerLabel(ticker, availableTickers)} — ${t('history.cumulativeReturn')}`}
           subtitle={`${ticker} · ${t('history.cumulativeSubtitle')}`}
         />
-        {pl || rl ? <Placeholder loading /> : (pe || re) ? <Placeholder error /> : !merged.length ? <Placeholder /> : (
+        {pl ? <Placeholder loading /> : pe ? <Placeholder error /> : !merged.length ? <Placeholder /> : (
           <>
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={merged} margin={{ top: 8, right: 20, left: 10, bottom: 44 }}>
@@ -261,37 +227,10 @@ export default function History() {
                   : v} labelFormatter={l => l} />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="3 3" />
                 <Area type="monotone" dataKey="cum_return_pct" name={t('history.returnPln')}
-                      stroke="#3b82f6" fill="#dbeafe" strokeWidth={1.5} dot={<RegimeDot />} />
+                      stroke="#3b82f6" fill="#dbeafe" strokeWidth={1.5} />
               </ComposedChart>
             </ResponsiveContainer>
-            <div className="regime-legend">
-              {Object.entries(REGIME_COLOR).map(([k, c]) => (
-                <span key={k} className="regime-legend-item">
-                  <span className="regime-legend-dot" style={{ background: c }} />{REGIME_LABEL[k]}
-                </span>
-              ))}
-            </div>
           </>
-        )}
-      </div>
-
-      {/* Regime probability stacked (HMM) */}
-      <div className="card">
-        <SectionHeader title={t('history.regimeProb')} subtitle={t('history.regimeProbSubtitle')} />
-        {rl ? <Placeholder loading /> : re ? <Placeholder error /> : !regimeRows.length ? <Placeholder /> : (
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={regimeRows} margin={{ top: 8, right: 20, left: 10, bottom: 44 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis {...makeXAxis(regimeRows, days)} />
-              <YAxis tickFormatter={v => `${(v*100).toFixed(0)}%`} tick={{ fontSize: 11 }} domain={[0,1]} width={40} />
-              <Tooltip formatter={(v) => v != null ? `${(v*100).toFixed(1)}%` : '—'} labelFormatter={l => l} />
-              <Legend />
-              <Area type="monotone" dataKey="prob_bull"          name={t('signals.bull')}          stackId="1" stroke={REGIME_COLOR.bull}          fill={REGIME_COLOR.bull}          fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_consolidation" name={t('signals.consolidation')} stackId="1" stroke={REGIME_COLOR.consolidation} fill={REGIME_COLOR.consolidation} fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_stagflation"   name={t('signals.stagflation')}   stackId="1" stroke={REGIME_COLOR.stagflation}   fill={REGIME_COLOR.stagflation}   fillOpacity={0.75} />
-              <Area type="monotone" dataKey="prob_bear"          name={t('signals.bear')}          stackId="1" stroke={REGIME_COLOR.bear}          fill={REGIME_COLOR.bear}          fillOpacity={0.75} />
-            </AreaChart>
-          </ResponsiveContainer>
         )}
       </div>
 

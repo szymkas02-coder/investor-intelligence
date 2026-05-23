@@ -29,6 +29,12 @@ export default function FXPage() {
   const { data: features} = useQuery({ queryKey: ['fx-features'],  queryFn: () => fetch('/ml/fx/features') })
 
   const tickFmt = d => d?.slice(0, 7)
+  const dailyTickProps = (rows, fontSize = 10) => {
+    const n = rows?.length ?? 0
+    const desired = 10
+    const interval = n > desired ? Math.floor(n / desired) : 0
+    return { dataKey: 'date', tickFormatter: d => d?.slice(0, 4), tick: { fontSize }, interval, minTickGap: 24 }
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem 1rem' }}>
@@ -57,7 +63,7 @@ export default function FXPage() {
           fan?.data ? (
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={fan.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <XAxis dataKey="date" tickFormatter={tickFmt} tick={{ fontSize: 10 }} interval={29} />
+                <XAxis {...dailyTickProps(fan.data)} />
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 10 }} />
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <Tooltip formatter={(v, n) => [v?.toFixed(4), n]} contentStyle={{ fontSize: '0.75rem' }} />
@@ -81,13 +87,13 @@ export default function FXPage() {
           band?.data ? (
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={band.data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <XAxis dataKey="date" tickFormatter={tickFmt} tick={{ fontSize: 10 }} interval={59} />
+                <XAxis {...dailyTickProps(band.data)} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                 <Tooltip formatter={v => v?.toFixed(4)} contentStyle={{ fontSize: '0.75rem' }} />
                 <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
-                <Line type="monotone" dataKey="band_width_21" stroke="#f97316" strokeWidth={1.5} dot={false} name="21d band" />
-                <Line type="monotone" dataKey="band_width_63" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="63d band" />
+                <Line type="monotone" dataKey="band_width_21d" stroke="#f97316" strokeWidth={1.5} dot={false} name="21d band" />
+                <Line type="monotone" dataKey="band_width_63d" stroke="#3b82f6" strokeWidth={1.5} dot={false} name="63d band" />
               </LineChart>
             </ResponsiveContainer>
           ) : <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>Loading...</div>

@@ -23,7 +23,7 @@ from fastapi.responses import StreamingResponse
 from backend.auth import get_current_user, require_non_guest
 from backend.database import get_db, get_db_write
 from backend.models import (
-    PortfolioResponse, Position,
+    PortfolioResponse, Position, AccountSummary,
     TransactionCreate, TransactionResponse,
     TransactionRow, TransactionsResponse,
 )
@@ -36,6 +36,59 @@ IKE_LIMITS = {
     2020: 15681.0, 2021: 15777.0, 2022: 17766.0,
     2023: 20805.0, 2024: 23472.0, 2025: 26019.0, 2026: 28260.0,
 }
+
+# IKZE annual contribution limits (PLN). IKZE = 1.2 × average monthly wage
+# (1.8× for self-employed, not modelled — single-rate approximation).
+IKZE_LIMITS = {
+    2016: 4866.00, 2017: 5115.60, 2018: 5331.60, 2019: 5718.00,
+    2020: 6272.40, 2021: 6310.80, 2022: 7106.40,
+    2023: 8322.00, 2024: 9388.80, 2025: 10407.60, 2026: 11304.00,
+}
+
+
+def _compute_account_summary(db, user_id: str, year: int) -> list:
+    """
+    Aggregate this year's PLN contributions (BUY + DEPOSIT) per account_type
+    directly from user_transactions. Returns list[AccountSummary].
+
+    Why aggregate live instead of using the ike_contributions table?
+    - The ike_contributions table only tracks IKE; mirroring it for IKZE and
+      regular would need a parallel table and migration.
+    - Live aggregation is naturally edit-safe: if a buy is modified or
+      deleted the running totals stay correct without extra bookkeeping.
+    - At single-user scale this is cheap (one indexed query per page load).
+    """
+    rows = db.execute("""
+        SELECT account_type,
+               COALESCE(SUM(CASE WHEN type = 'deposit' THEN price_pln
+                                 WHEN type = 'buy'     THEN shares * price_pln
+                                 ELSE 0 END), 0) AS contributed
+        FROM user_transactions
+        WHERE user_id = %s
+          AND EXTRACT(YEAR FROM date) = %s
+          AND type IN ('buy', 'deposit')
+        GROUP BY account_type
+    """, [user_id, year]).fetchall()
+
+    by_type = {r[0]: float(r[1] or 0) for r in rows}
+
+    summaries = []
+    for account_type, limits_map in (("IKE", IKE_LIMITS), ("IKZE", IKZE_LIMITS), ("regular", None)):
+        contributed = by_type.get(account_type, 0.0)
+        if limits_map is not None:
+            limit = limits_map.get(year)
+            remaining = (limit - contributed) if limit is not None else None
+        else:
+            limit = None
+            remaining = None
+        summaries.append(AccountSummary(
+            account_type = account_type,
+            year         = year,
+            contributed  = round(contributed, 2),
+            limit        = limit,
+            remaining    = round(remaining, 2) if remaining is not None else None,
+        ))
+    return summaries
 
 
 
@@ -122,6 +175,9 @@ def get_portfolio(
     limit       = (ike_row[1] if ike_row and ike_row[1] else None) or IKE_LIMITS.get(year)
     remaining   = (limit - contributed) if limit else None
 
+    # Per-account summary (IKE + IKZE + regular), aggregated live from transactions
+    accounts = _compute_account_summary(db, user_id, year)
+
     return PortfolioResponse(
         user_id         = user_id,
         positions       = positions,
@@ -129,6 +185,7 @@ def get_portfolio(
         ike_contributed = contributed,
         ike_limit       = limit,
         ike_remaining   = remaining,
+        accounts        = accounts,
     )
 
 

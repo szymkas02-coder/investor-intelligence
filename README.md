@@ -1,6 +1,7 @@
 # Investor Intelligence
 
-**A full-stack investment intelligence platform for long-term passive investors.**
+**A personal finance dashboard for long-term passive investors.**
+**Built primarily to demonstrate data engineering, PostgreSQL, and cloud deployment (GCP + Render).**
 
 Live demo: https://investor-intelligence-1062085617181.europe-central2.run.app  
 *(Open link — no login required. Sign in with any Google account for full portfolio access.)*
@@ -8,7 +9,11 @@ Live demo: https://investor-intelligence-1062085617181.europe-central2.run.app
 > **Backup deployment:** also live at https://investor-intelligence-3shd.onrender.com (Render + Supabase, $0/month).
 > The GCP deployment runs on a free trial ending ~2026-08-10; the Render deployment will become primary at that point.
 
-Built to answer one question per month: *invest now, DCA, or wait?* The system ingests market data from 8+ APIs, runs 7 ML models across market regimes, volatility, FX, recession risk, and valuation, and surfaces everything through a bilingual React frontend with an AI chat assistant.
+The core proposition is unromantic on purpose: **be globally diversified, contribute monthly, don't time the market.** The app supports that by tracking your portfolio (positions, IKE contribution limit, transaction history, AI-parsed broker imports), providing a long-run perspective on equity returns, an AI assistant for market questions, and a Situation Room with Gemini-grounded weekly briefings.
+
+**The ML models are a research showcase, not the recommendation engine.** Seven models (HMM regime detection, Kaplan-Meier survival, RF volatility, LightGBM quantile FX, LightGBM recession with isotonic calibration, CAPE quantile regression, rolling PCA diversification) live under `/ml` as a demonstration of applied techniques. Each comes with honest caveats — including, for the HMM, the fact that the post-1990 equity environment is structurally different from the 19th and mid-20th century and the model can't see through that. They do not drive the app's investment advice.
+
+This project's primary goal was learning **PostgreSQL, cloud deployment (GCP + Render), and full-stack production practices** — the ML layer was added to give the data something to do. The repo is structured to make those skills visible: see [Data Engineering Highlights](#data-engineering-highlights) and [GCP Deployment](#gcp-deployment).
 
 For a detailed description of every ML model (inputs, method, limitations, how to retrain), see [`docs/ML_REFERENCE.md`](docs/ML_REFERENCE.md).
 

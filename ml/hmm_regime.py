@@ -40,6 +40,13 @@ ROOT     = Path(__file__).parent.parent
 PKL_PATH = ROOT / "models" / "hmm_regime.pkl"
 SHILLER  = ROOT / "shiller.csv"
 
+# Train cutoff restored (session 20) — training on full 1871–present produced
+# clusters dominated by the pre-WWII variance regime, so post-1990 dates were
+# bucketed nonsensically (e.g. 2011–2020 labelled "bear"). Limiting the fit to
+# pre-2000 data yields clusters whose semantics line up with the post-WWII era
+# people actually invest in. Forward-filtering across the full history is still
+# safe (no look-ahead) and now produces interpretable labels.
+TRAIN_CUTOFF = "2000-01-01"
 N_STATES     = 4
 N_ITER       = 2000
 RANDOM_STATE = 42
@@ -142,9 +149,13 @@ def train():
     scaler   = StandardScaler()
     X_scaled = scaler.fit_transform(X_all)
 
-    print(f"  Training on full dataset: {len(X_scaled)} rows")
+    train_mask = df["date"] < TRAIN_CUTOFF
+    X_train    = X_scaled[train_mask]
+    print(f"  Training on pre-{TRAIN_CUTOFF[:4]}: {train_mask.sum()} rows")
+    print(f"  Forward-filtering full history: {len(X_scaled)} rows")
+
     print(f"\nFitting HMM (BIC selection over n_states=2,3,4)...")
-    model = fit_with_bic(X_scaled)
+    model = fit_with_bic(X_train)
 
     state_labels = label_states(model, FEATURE_COLS)
     print(f"  State labels: {state_labels}")

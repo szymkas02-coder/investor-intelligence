@@ -42,11 +42,20 @@ RETURN_COLS = [
     "vix_change_5d",
 ]
 
-PAIR_MAP = {
-    ("acwi_ret_1d", "gold_ret_1d"):      "ACWI-GOLD",
-    ("acwi_ret_1d", "tlt_ret_1d"):       "ACWI-BONDS",
-    ("acwi_ret_1d", "usdpln_ret_21d"):   "ACWI-USD",
+_ASSET_LABELS = {
+    "acwi_ret_1d":    "ACWI",
+    "gold_ret_1d":    "GOLD",
+    "tlt_ret_1d":     "BONDS",
+    "usdpln_ret_21d": "USD",
+    "vix_change_5d":  "VIX",
 }
+
+# All pairs (10 for 5 assets) — needed so /ml/pca/current-heatmap can render
+# a complete matrix instead of one row.
+PAIR_MAP = {}
+for i, a in enumerate(RETURN_COLS):
+    for b in RETURN_COLS[i + 1:]:
+        PAIR_MAP[(a, b)] = f"{_ASSET_LABELS[a]}-{_ASSET_LABELS[b]}"
 
 
 def load_daily_returns(conn) -> pd.DataFrame:

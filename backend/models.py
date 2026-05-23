@@ -126,13 +126,25 @@ class Position(BaseModel):
     gain_pct:       Optional[float] = None
 
 
+class AccountSummary(BaseModel):
+    """Per-account-type yearly contribution summary."""
+    account_type:   str                # IKE | IKZE | regular
+    year:           int
+    contributed:    float              # PLN contributed this year via buy/deposit
+    limit:          Optional[float]    # None for regular accounts (no limit)
+    remaining:      Optional[float]    # None for regular accounts
+
+
 class PortfolioResponse(BaseModel):
     user_id:          str
     positions:        list[Position]
     total_value_pln:  Optional[float]
+    # Legacy IKE fields kept for backwards-compat with existing UI
     ike_contributed:  Optional[float]
     ike_limit:        Optional[float]
     ike_remaining:    Optional[float]
+    # New unified per-account summary (IKE + IKZE + regular)
+    accounts:         list[AccountSummary] = []
 
 
 class TransactionCreate(BaseModel):
