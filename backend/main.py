@@ -29,7 +29,7 @@ from backend.database import get_db
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.auth import router as auth_router
-from backend.routers import dashboard, regime, portfolio, pipeline, decision, history, signals, situation, regime_duration, ml_charts
+from backend.routers import dashboard, regime, portfolio, pipeline, decision, invest, history, signals, situation, regime_duration, ml_charts
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,8 @@ app.include_router(dashboard.router,       prefix="/api")  # /api/dashboard
 app.include_router(regime.router,          prefix="/api")  # /api/regime
 app.include_router(portfolio.router,       prefix="/api")  # /api/portfolio
 app.include_router(pipeline.router,        prefix="/api")  # /api/pipeline
-app.include_router(decision.router,        prefix="/api")  # /api/decision
+app.include_router(decision.router,        prefix="/api")  # /api/decision (legacy)
+app.include_router(invest.router,          prefix="/api")  # /api/invest
 app.include_router(history.router,         prefix="/api")  # /api/history
 app.include_router(signals.router,         prefix="/api")  # /api/signals
 app.include_router(situation.router,       prefix="/api")  # /api/situation, /api/chat

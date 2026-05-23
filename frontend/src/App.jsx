@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { useTranslation } from 'react-i18next'
 import Login           from './pages/Login'
 import Dashboard       from './pages/Dashboard'
-import Decision        from './pages/Decision'
+import Invest          from './pages/Invest'
 import Portfolio       from './pages/Portfolio'
 import History         from './pages/History'
 import Situation       from './pages/Situation'
@@ -39,11 +39,11 @@ function Nav() {
       <span className="nav-brand">{t('nav.brand')}</span>
       <div className="nav-links">
         <NavLink to="/dashboard">{t('nav.dashboard')}</NavLink>
-        <NavLink to="/decision">{t('nav.decision')}</NavLink>
+        <NavLink to="/invest">{t('nav.invest', { defaultValue: t('nav.decision') })}</NavLink>
         <NavLink to="/situation">{t('nav.situation')}</NavLink>
         <NavLink to="/portfolio">{t('nav.portfolio')}</NavLink>
         <NavLink to="/history">{t('nav.history')}</NavLink>
-        <NavLink to="/ml">{t('nav.ml', 'ML')}</NavLink>
+        <NavLink to="/ml">{t('nav.research', { defaultValue: 'Research' })}</NavLink>
       </div>
       <div className="nav-user">
         <button onClick={toggleLang} className="btn-ghost lang-toggle">
@@ -76,9 +76,11 @@ export default function App() {
           <Route path="/dashboard" element={
             <RequireAuth><Layout><Dashboard /></Layout></RequireAuth>
           } />
-          <Route path="/decision" element={
-            <RequireAuth><Layout><Decision /></Layout></RequireAuth>
+          <Route path="/invest" element={
+            <RequireAuth><Layout><Invest /></Layout></RequireAuth>
           } />
+          {/* Legacy URL — keep working for any external bookmarks */}
+          <Route path="/decision" element={<Navigate to="/invest" replace />} />
           <Route path="/portfolio" element={
             <RequireAuth><Layout><Portfolio /></Layout></RequireAuth>
           } />

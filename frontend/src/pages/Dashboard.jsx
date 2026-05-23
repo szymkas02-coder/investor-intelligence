@@ -174,7 +174,7 @@ export default function Dashboard() {
 
       {/* Verdict highlight — pulled from /decision */}
       {decision && (
-        <Link to="/decision" style={{ textDecoration: 'none' }}>
+        <Link to="/invest" style={{ textDecoration: 'none' }}>
           <div
             style={{
               background: '#fff',
@@ -218,9 +218,9 @@ export default function Dashboard() {
       {/* Card grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
         <HubCard
-          to="/decision"
+          to="/invest"
           icon="🎯"
-          title={t('nav.decision')}
+          title={t('nav.invest', { defaultValue: t('nav.decision') })}
           subtitle={t('dashboardHub.decisionSubtitle')}
           description={t('dashboardHub.decisionDesc')}
           badge={decBadge}

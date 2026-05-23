@@ -42,4 +42,4 @@ ml/PROJECTION_MODEL.md
 uvicorn_out.log
 uvicorn_smoke.log
 npm_out.log
-verify_pages.py
+verify_*.py
