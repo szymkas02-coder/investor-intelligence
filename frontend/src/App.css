@@ -153,6 +153,26 @@
 /* ── Layout ──────────────────────────────────────────────── */
 .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 
+@media (max-width: 768px) {
+  .nav {
+    flex-wrap: wrap; gap: 0.5rem; padding: 0.5rem 0.75rem;
+    position: static;   /* sticky nav-wrap intercepts clicks on tall mobile pages */
+  }
+  .nav-links { flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; }
+  .nav-links a { padding: 0.55rem 0.35rem; min-height: 36px; display: inline-flex; align-items: center; }
+  .nav-brand { font-size: 0.9rem; margin-right: 0; }
+  .nav-user { margin-left: auto; gap: 0.5rem; }
+  .nav-user button { min-height: 36px; padding: 0.4rem 0.7rem; }
+  .main { padding: 0.75rem; }
+
+  .tx-history-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .tx-actions { flex-wrap: wrap; }
+
+  /* Wide tables: horizontal scroll within their card */
+  .card > .positions-table,
+  .card > .tx-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
 /* ── Card ────────────────────────────────────────────────── */
 .card {
   background: #fff; border-radius: 8px;

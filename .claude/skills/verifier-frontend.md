@@ -81,6 +81,48 @@ for _, fname in pages_to_check:
     os.remove(OUT + fname)
 ```
 
+## Mobile device emulation
+
+Chrome DevTools' "device toolbar" is just viewport + `isMobile` + `hasTouch` + a mobile UA. Playwright exposes the same via `browser.new_context(...)`. Use this to catch layout overflow, tap-target spacing, and mobile-only stylesheet branches.
+
+Presets (match common real devices):
+
+```python
+DEVICES = {
+    'iphone14':  {'viewport': {'width': 390, 'height': 844},
+                  'device_scale_factor': 3, 'is_mobile': True, 'has_touch': True,
+                  'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                                'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                                'Version/17.0 Mobile/15E148 Safari/604.1'},
+    'pixel7':    {'viewport': {'width': 412, 'height': 915},
+                  'device_scale_factor': 2.625, 'is_mobile': True, 'has_touch': True,
+                  'user_agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) '
+                                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                                'Chrome/120.0.0.0 Mobile Safari/537.36'},
+}
+```
+
+Usage — `new_context()` (not `new_page()`) because mobile flags must be set at context level:
+
+```python
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True, executable_path=CHROMIUM)
+    ctx = browser.new_context(**DEVICES['iphone14'])
+    page = ctx.new_page()
+    # ...login + navigate + screenshot as usual...
+    ctx.close()
+```
+
+Mobile-specific things to look for in screenshots:
+- Horizontal scroll (any page wider than viewport = bug)
+- Navbar collapse / hamburger behavior
+- Recharts: do legends wrap? Are X-axis labels readable?
+- Tap targets: buttons/links should be ≥ 44px tall
+- Tables: should either scroll horizontally inside a container or stack vertically
+- Modal/dialog widths (Portfolio transaction form, Excel upload preview)
+
+Note: Playwright's Chromium with a mobile UA still uses **Blink**, not WebKit. iOS Safari-specific bugs (100vh, scroll bounce, input zoom on focus) will NOT show up. For those, real devices are needed.
+
 ## Reading screenshots in Claude
 
 After the script runs, read each file with the Read tool (Claude can see images):

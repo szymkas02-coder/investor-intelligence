@@ -138,8 +138,10 @@ function SignalBadge({ modelKey, summary }) {
     </span>
   }
   if (modelKey === 'fx') {
-    return <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-      {s.usdpln_q10}–{s.usdpln_q90} PLN
+    const lo = s.usdpln_q10 != null ? Number(s.usdpln_q10).toFixed(2) : '—'
+    const hi = s.usdpln_q90 != null ? Number(s.usdpln_q90).toFixed(2) : '—'
+    return <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>
+      {lo}–{hi} PLN
     </span>
   }
   return null
@@ -177,7 +179,7 @@ export default function ML() {
           : 'The models below were built as a demonstration of ML techniques (HMM, KM, RF, LightGBM, isotonic calibration, PCA). They do not drive the app\'s investment recommendation — that remains simple: be globally diversified, contribute monthly, ignore short-term signals. The models have limitations (e.g. the HMM cannot distinguish the 19th-century equity environment from the 21st), documented on each page.'}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(380px, 100%), 1fr))', gap: '1rem' }}>
         {MODELS.map(m => (
           <Link key={m.key} to={m.path} style={{ textDecoration: 'none' }}>
             <div style={{
