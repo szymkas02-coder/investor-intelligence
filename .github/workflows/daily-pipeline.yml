@@ -38,12 +38,10 @@ jobs:
           echo "Freshness cutoff (must be >= this): $CUTOFF"
 
           for i in $(seq 1 24); do
-            LATEST=$(curl -s --max-time 60 \
-              "${APP_URL}/api/ml/volatility/forecast" \
-              | python3 -c "import sys,json;
-d=json.load(sys.stdin);
-rows=d.get('data') if isinstance(d,dict) else d;
-print(max((r['date'] for r in rows), default=''))" 2>/dev/null || echo "")
+            # Extract the max forecast date. The endpoint returns {"data":[{date,...}]}.
+            # jq is preinstalled on ubuntu-latest. [.data[].date]|max gives the latest.
+            LATEST=$(curl -s --max-time 60 "${APP_URL}/api/ml/volatility/forecast" \
+              | jq -r '([.data[].date] | max) // empty' 2>/dev/null || echo "")
             echo "  attempt $i: latest forecast date = '${LATEST:-<none>}'"
             if [ -n "$LATEST" ] && { [ "$LATEST" \> "$CUTOFF" ] || [ "$LATEST" = "$CUTOFF" ]; }; then
               echo "Data is fresh (latest=$LATEST >= cutoff=$CUTOFF). Pipeline succeeded."
