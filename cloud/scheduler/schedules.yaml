@@ -1,5 +1,15 @@
 # Cloud Scheduler job definitions for the Inwestowanie Pasywne pipeline
 #
+# ⚠️ STALE / NON-AUTHORITATIVE (as of 2026-07-02). This file describes the old
+# Cloud Functions (cloudfunctions.net) architecture with per-step functions.
+# The app now runs on Cloud Run with a single pipeline endpoint. The LIVE
+# scheduler has only two jobs, both HTTP-targeting the Cloud Run service:
+#   run-pipeline-daily  0 4 * * 1-5  -> .../api/pipeline/run?wait=true
+#   weekly-briefing     0 21 * * 0   -> .../api/situation/refresh-scheduled
+# ?wait=true makes the pipeline run synchronously so Cloud Run doesn't reap the
+# instance mid-run (see CLAUDE.md session 22). Trust `gcloud scheduler jobs
+# list`, not this file.
+#
 # Deploy with:
 #   gcloud scheduler jobs create http <name> \
 #     --schedule="<cron>" \
