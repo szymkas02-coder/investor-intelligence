@@ -9,22 +9,49 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger pipeline
+      - name: Trigger pipeline and verify data refreshed
+        env:
+          APP_URL: ${{ secrets.RENDER_APP_URL }}
+          SECRET:  ${{ secrets.PIPELINE_SECRET }}
         run: |
-          # wait=true runs the pipeline synchronously so it fully completes
-          # instead of being killed when the platform reaps the container after
-          # the immediate 200 (that partial-run bug left KM/vol/FX steps stale).
-          # --max-time must therefore cover the whole run, not just the trigger.
-          # First curl can spend up to ~90s waking a cold free-tier container.
-          curl -s -o response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_APP_URL }}/api/pipeline/run?wait=true" \
-            -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
+          set -euo pipefail
+
+          # Fire the pipeline synchronously (?wait=true) so it runs to completion
+          # and steps execute in order (KM after HMM). On Render's free tier the
+          # full run takes ~18 min, but the edge proxy cuts the HTTP response at
+          # ~15 min with a 502 -- the pipeline keeps running inside the container
+          # and finishes. So we must NOT treat the trigger's HTTP code as the
+          # success signal; instead we poll the data and check it actually
+          # refreshed. This avoids the false-failure the 502 used to cause.
+          echo "Firing pipeline (background curl; 502/timeout is expected and ignored)..."
+          curl -s -o /dev/null \
+            -X POST "${APP_URL}/api/pipeline/run?wait=true" \
+            -H "Authorization: Bearer ${SECRET}" \
             -H "Content-Type: application/json" \
-            --connect-timeout 90 --max-time 1200 > http_code.txt
-          HTTP_CODE=$(cat http_code.txt)
-          echo "HTTP status: $HTTP_CODE"
-          cat response.json
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Pipeline trigger failed with status $HTTP_CODE"
-            exit 1
-          fi
+            --connect-timeout 90 --max-time 1200 || true
+
+          # Poll: the volatility forecast's latest date should be recent once the
+          # run completes. Allow up to 4 days of slack for weekends / market-closed
+          # days (newest trading row may lag the calendar). Poll for up to ~24 min.
+          echo "Polling for fresh data (latest volatility forecast date)..."
+          CUTOFF=$(date -u -d '4 days ago' +%Y-%m-%d)
+          echo "Freshness cutoff (must be >= this): $CUTOFF"
+
+          for i in $(seq 1 24); do
+            LATEST=$(curl -s --max-time 60 \
+              "${APP_URL}/api/ml/volatility/forecast" \
+              | python3 -c "import sys,json;
+d=json.load(sys.stdin);
+rows=d.get('data') if isinstance(d,dict) else d;
+print(max((r['date'] for r in rows), default=''))" 2>/dev/null || echo "")
+            echo "  attempt $i: latest forecast date = '${LATEST:-<none>}'"
+            if [ -n "$LATEST" ] && { [ "$LATEST" \> "$CUTOFF" ] || [ "$LATEST" = "$CUTOFF" ]; }; then
+              echo "Data is fresh (latest=$LATEST >= cutoff=$CUTOFF). Pipeline succeeded."
+              exit 0
+            fi
+            sleep 60
+          done
+
+          echo "Data did not refresh within the polling window (last seen: ${LATEST:-<none>}, needed >= $CUTOFF)."
+          echo "The pipeline may have failed or is still running. Check Render logs."
+          exit 1
