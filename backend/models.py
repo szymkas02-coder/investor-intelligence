@@ -188,3 +188,5 @@ class PipelineRunResponse(BaseModel):
     status:     str
     started_at: datetime
     message:    str
+    # Populated only for synchronous runs (?wait=true): per-step status summary.
+    results:    Optional[dict] = None

@@ -33,7 +33,12 @@ def _run_pipeline():
     import sys
     sys.path.insert(0, str(PROJECT_ROOT))
     from ingestion.pipeline import run
-    run(skip_fundamentals=True)
+    return run(skip_fundamentals=True)
+
+
+def _summarise(results: dict) -> dict:
+    """Collapse the full per-step result dict to a compact status summary."""
+    return {k: v.get("status") for k, v in results.items() if isinstance(v, dict)}
 
 
 def _check_pipeline_auth(authorization: Optional[str]):
@@ -73,11 +78,42 @@ def _check_pipeline_auth(authorization: Optional[str]):
 def trigger_pipeline(
     background_tasks: BackgroundTasks,
     authorization: Optional[str] = Header(None),
+    wait: bool = False,
 ):
+    """
+    Trigger the ingestion pipeline.
+
+    wait=false (default): fire-and-forget as a background task. Good for the UI
+      "Refresh" button so the browser gets an immediate response.
+
+    wait=true: run the pipeline SYNCHRONOUSLY and only return once it finishes.
+      REQUIRED on Cloud Run: with the default (background task), Cloud Run returns
+      the 200, throttles CPU to ~0, and reaps the scaled-to-zero instance before
+      the background work completes — so scheduled runs never actually finish and
+      the data goes stale. Holding the request open keeps CPU allocated and the
+      instance alive for the whole run. Cloud Scheduler must therefore call this
+      with ?wait=true and an attempt-deadline >= pipeline runtime.
+    """
     _check_pipeline_auth(authorization)
+    started_at = datetime.utcnow()
+
+    if wait:
+        results = _run_pipeline()
+        summary = _summarise(results or {})
+        errors  = [k for k, s in summary.items() if s == "error"]
+        return PipelineRunResponse(
+            status     = "error" if errors else "completed",
+            started_at = started_at,
+            message    = (
+                f"Pipeline finished with errors in: {errors}"
+                if errors else "Pipeline completed successfully."
+            ),
+            results    = summary,
+        )
+
     background_tasks.add_task(_run_pipeline)
     return PipelineRunResponse(
         status     = "started",
-        started_at = datetime.utcnow(),
+        started_at = started_at,
         message    = "Pipeline started in background. Check logs for progress.",
     )

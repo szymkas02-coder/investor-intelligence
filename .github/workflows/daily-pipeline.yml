@@ -11,11 +11,16 @@ jobs:
     steps:
       - name: Trigger pipeline
         run: |
+          # wait=true runs the pipeline synchronously so it fully completes
+          # instead of being killed when the platform reaps the container after
+          # the immediate 200 (that partial-run bug left KM/vol/FX steps stale).
+          # --max-time must therefore cover the whole run, not just the trigger.
+          # First curl can spend up to ~90s waking a cold free-tier container.
           curl -s -o response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_APP_URL }}/api/pipeline/run" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/api/pipeline/run?wait=true" \
             -H "Authorization: Bearer ${{ secrets.PIPELINE_SECRET }}" \
             -H "Content-Type: application/json" \
-            --max-time 90 > http_code.txt
+            --connect-timeout 90 --max-time 1200 > http_code.txt
           HTTP_CODE=$(cat http_code.txt)
           echo "HTTP status: $HTTP_CODE"
           cat response.json

@@ -7,6 +7,7 @@ POST /chat              — Gemma chat assistant with context injection
 """
 
 import os
+import time
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional
@@ -74,6 +75,35 @@ def _get_genai_client():
         raise HTTPException(status_code=503, detail="GEMINI_API_KEY not configured.")
     from google import genai
     return genai.Client(api_key=GEMINI_API_KEY)
+
+
+def _generate_with_retry(client, model, contents, config,
+                         attempts: int = 4, base_delay: float = 4.0) -> str:
+    """
+    Call Gemini with exponential backoff on transient overload (503 UNAVAILABLE
+    / RESOURCE_EXHAUSTED). Gemini's free tier frequently returns a one-off 503
+    "high demand" error that succeeds on retry; without this a single blip fails
+    the whole weekly briefing. Delays: 4s, 8s, 16s. Re-raises the last error.
+    """
+    last_exc = None
+    for i in range(attempts):
+        try:
+            resp = client.models.generate_content(
+                model=model, contents=contents, config=config,
+            )
+            return resp.text
+        except Exception as e:
+            last_exc = e
+            msg = str(e)
+            transient = ("503" in msg or "UNAVAILABLE" in msg
+                         or "RESOURCE_EXHAUSTED" in msg or "overloaded" in msg.lower())
+            if not transient or i == attempts - 1:
+                raise
+            delay = base_delay * (2 ** i)
+            logger.warning("Gemini transient error (attempt %d/%d), retrying in %.0fs: %s",
+                           i + 1, attempts, delay, msg[:160])
+            time.sleep(delay)
+    raise last_exc  # unreachable, but keeps type checkers happy
 
 
 def _get_latest_briefings(db) -> tuple[str, str]:
@@ -151,12 +181,9 @@ def refresh_situation(
     config = types.GenerateContentConfig(tools=[search_tool])
 
     try:
-        pulse_resp = client.models.generate_content(
-            model=SITUATION_MODEL,
-            contents=pulse_prompt,
-            config=config,
+        pulse_text = _generate_with_retry(
+            client, SITUATION_MODEL, pulse_prompt, config,
         )
-        pulse_text = pulse_resp.text
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
 
@@ -213,10 +240,9 @@ def refresh_situation_scheduled(
     config = types.GenerateContentConfig(tools=[search_tool])
 
     try:
-        pulse_resp = client.models.generate_content(
-            model=SITUATION_MODEL, contents=pulse_prompt, config=config,
+        pulse_text = _generate_with_retry(
+            client, SITUATION_MODEL, pulse_prompt, config,
         )
-        pulse_text = pulse_resp.text
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Gemini pulse error: {e}")
 
@@ -226,10 +252,9 @@ def refresh_situation_scheduled(
     )
 
     try:
-        briefing_resp = client.models.generate_content(
-            model=SITUATION_MODEL, contents=briefing_prompt, config=config,
+        briefing_text = _generate_with_retry(
+            client, SITUATION_MODEL, briefing_prompt, config,
         )
-        briefing_text = briefing_resp.text
     except Exception as e:
         db.commit()
         raise HTTPException(status_code=502, detail=f"Gemini briefing error: {e}")
