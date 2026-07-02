@@ -174,15 +174,7 @@ def run(skip_fundamentals: bool = False,
     )
 
     # ------------------------------------------------------------------
-    # 11. Regime duration (Kaplan-Meier survival analysis)
-    # ------------------------------------------------------------------
-    from ml.regime_duration import compute as compute_regime_duration
-    results["regime_duration"] = run_step(
-        "Regime duration (KM)", compute_regime_duration
-    )
-
-    # ------------------------------------------------------------------
-    # 12. Correlation PCA (diversification index)
+    # 11. Correlation PCA (diversification index)
     # ------------------------------------------------------------------
     from ml.correlation_pca import compute as compute_correlation_pca
     results["correlation_pca"] = run_step(
@@ -190,7 +182,7 @@ def run(skip_fundamentals: bool = False,
     )
 
     # ------------------------------------------------------------------
-    # 13. QC
+    # 12. QC
     # ------------------------------------------------------------------
     from processing.qc import run as run_qc
     results["qc"] = run_step(
@@ -198,10 +190,25 @@ def run(skip_fundamentals: bool = False,
     )
 
     # ------------------------------------------------------------------
-    # 14. HMM regime inference
+    # 13. HMM regime inference
     # ------------------------------------------------------------------
     from ml.hmm_regime import predict as hmm_predict
     results["hmm"] = run_step("HMM regime inference", hmm_predict)
+
+    # ------------------------------------------------------------------
+    # 14. Regime duration (Kaplan-Meier survival analysis)
+    #
+    # MUST run AFTER HMM inference (step 13): KM derives its episodes from
+    # hmm_predictions' latest model_version. When it ran before HMM, a run that
+    # produced a new HMM model_version left KM reading an incomplete/empty set
+    # for that version, so it wrote an empty regime_duration_stats table (the
+    # "KM not working" bug — surfaced on Render's freshly-built Supabase, latent
+    # on GCP where a prior version was already populated).
+    # ------------------------------------------------------------------
+    from ml.regime_duration import compute as compute_regime_duration
+    results["regime_duration"] = run_step(
+        "Regime duration (KM)", compute_regime_duration
+    )
 
     # ------------------------------------------------------------------
     # 15. Volatility forecasts

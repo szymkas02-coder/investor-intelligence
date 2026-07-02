@@ -258,6 +258,19 @@ def compute(print_summary: bool = True) -> dict:
     km_df = compute_km_estimates(episodes)
     print(f"  {len(km_df)} KM rows computed")
 
+    # Guard: never wipe a populated stats table and replace it with nothing.
+    # write_km_estimates() does DELETE-then-INSERT; if km_df is empty (e.g. a
+    # transient read of incomplete hmm_predictions) that would silently blank
+    # the table while the step still reports "ok". Raise instead so the pipeline
+    # marks the step "error" and the previous good rows are left intact.
+    if km_df.empty:
+        conn.close()
+        raise RuntimeError(
+            f"KM produced 0 rows from {len(episodes)} episodes "
+            f"(regimes: {episodes['regime'].value_counts().to_dict()}). "
+            "Refusing to overwrite regime_duration_stats with an empty table."
+        )
+
     write_km_estimates(conn, km_df)
     print("  Written to regime_duration_stats")
 
