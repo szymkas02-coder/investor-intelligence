@@ -61,15 +61,17 @@ def build_features(conn=None) -> None:
     # on those days anyway.
     # =========================================================================
     log.info("Step 0: Building date spine ...")
-    # WHY: Use ISAC.L (from 2011) + CSPX.L (from 2010) as the date spine.
-    # ISAC.L is now the primary ACWI ticker — 3x more history than VWCE.DE.
-    # Union of both ensures no trading day is missed. Both trade on LSE
-    # business days so the union produces a clean daily index.
+    # WHY: Use ISAC.L (from 2011) + CSPX.L (from 2010) + VWCE.DE as the date
+    # spine. ISAC.L is the primary ACWI ticker — 3x more history than VWCE.DE.
+    # Union of all three ensures no trading day is missed even when one LSE
+    # ticker has a transient yfinance gap (see the ACWI COALESCE fallback in
+    # Step 1). Adding VWCE.DE means the tail of the spine survives an ISAC.L +
+    # CSPX.L LSE outage, so recent dates still get a feature row to populate.
     run_sql(conn, f"""
         INSERT INTO daily_features (date)
         SELECT DISTINCT date
         FROM raw_prices
-        WHERE ticker IN ('{ACWI_TICKER}', '{SPY_TICKER}')
+        WHERE ticker IN ('{ACWI_TICKER}', '{SPY_TICKER}', '{VWCE_TICKER}')
           AND source = '{ACWI_SOURCE}'
           AND date >= '2005-01-01' AND date <= '{today}'
         ON CONFLICT (date) DO NOTHING
@@ -90,6 +92,23 @@ def build_features(conn=None) -> None:
     # =========================================================================
     log.info("Step 1: Log returns and rolling volatility ...")
 
+    # WHY the COALESCE fallback: ISAC.L is the primary ACWI series (from 2011),
+    # but it's an LSE ticker and yfinance intermittently returns empty for LSE
+    # tickers for a stretch of days. When that happens, acwi_ret/vol go NULL for
+    # the affected dates, and everything downstream that filters
+    # `WHERE acwi_vol_21d IS NOT NULL` (the volatility forecaster, VIX scatter,
+    # vol regime) silently freezes at the last good date — while FX and other
+    # models advance, so the failure looks selective and mysterious.
+    # (Happened 2026-07: ISAC.L stalled at 07-08, vol forecast froze there.)
+    #
+    # Fix: build the ACWI return series from BOTH ISAC.L and VWCE.DE, computing
+    # returns independently per source and COALESCE-ing them (ISAC.L preferred).
+    # We splice RETURNS, not prices — returns are unit-free, so this avoids the
+    # level/currency jump a price-space splice (USD ISAC.L vs EUR VWCE.DE) would
+    # inject at the boundary. VWCE.DE's local (EUR) 1d return differs from
+    # ISAC.L's USD return only by that day's EUR/USD move (~tens of bps), a fine
+    # proxy for the handful of gap days it ever covers. Rolling vol is then
+    # computed over the coalesced, gap-free return series.
     run_sql(conn, f"""
         UPDATE daily_features
         SET
@@ -100,15 +119,35 @@ def build_features(conn=None) -> None:
             acwi_vol_21d = src.vol_21d,
             acwi_vol_63d = src.vol_63d
         FROM (
-            WITH log_rets AS (
+            WITH isac AS (
                 SELECT date,
                        LN(adj_close / LAG(adj_close, 1)  OVER (ORDER BY date)) AS ret_1d,
                        LN(adj_close / LAG(adj_close, 5)  OVER (ORDER BY date)) AS ret_5d,
                        LN(adj_close / LAG(adj_close, 21) OVER (ORDER BY date)) AS ret_21d,
-                       LN(adj_close / LAG(adj_close, 63) OVER (ORDER BY date)) AS ret_63d,
-                       adj_close
+                       LN(adj_close / LAG(adj_close, 63) OVER (ORDER BY date)) AS ret_63d
                 FROM raw_prices
                 WHERE ticker = '{ACWI_TICKER}' AND source = '{ACWI_SOURCE}'
+            ),
+            vwce AS (
+                SELECT date,
+                       LN(adj_close / LAG(adj_close, 1)  OVER (ORDER BY date)) AS ret_1d,
+                       LN(adj_close / LAG(adj_close, 5)  OVER (ORDER BY date)) AS ret_5d,
+                       LN(adj_close / LAG(adj_close, 21) OVER (ORDER BY date)) AS ret_21d,
+                       LN(adj_close / LAG(adj_close, 63) OVER (ORDER BY date)) AS ret_63d
+                FROM raw_prices
+                WHERE ticker = '{VWCE_TICKER}' AND source = '{ACWI_SOURCE}'
+            ),
+            log_rets AS (
+                -- union of both date sets so a date present in either source is
+                -- covered; per-column COALESCE prefers ISAC.L, falls back to VWCE.DE
+                SELECT d.date,
+                       COALESCE(i.ret_1d,  v.ret_1d)  AS ret_1d,
+                       COALESCE(i.ret_5d,  v.ret_5d)  AS ret_5d,
+                       COALESCE(i.ret_21d, v.ret_21d) AS ret_21d,
+                       COALESCE(i.ret_63d, v.ret_63d) AS ret_63d
+                FROM (SELECT date FROM isac UNION SELECT date FROM vwce) d
+                LEFT JOIN isac i ON i.date = d.date
+                LEFT JOIN vwce v ON v.date = d.date
             )
             SELECT date,
                    ret_1d, ret_5d, ret_21d, ret_63d,

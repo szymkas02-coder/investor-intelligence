@@ -120,6 +120,16 @@ HISTORY_START = "2005-01-01"
 SOURCE = "yfinance"
 
 
+# If a ticker's newest stored row is more than this many calendar days behind
+# today, the incremental fetch is not just "no new trading days" — the ticker
+# has a genuine gap (yfinance intermittently returns empty for LSE tickers for
+# a stretch). In that case we widen the fetch window (see get_latest_date) to
+# force yfinance to backfill the hole rather than perpetually starting from the
+# day after the stale date and getting empty responses forever.
+STALE_GAP_DAYS  = 5    # ~3-4 trading days + weekend slack
+GAP_REFETCH_DAYS = 45  # how far back to re-request when a gap is detected
+
+
 def get_latest_date(conn, ticker: str) -> str:
     # WHY: We check the max date already stored before fetching so that
     # incremental runs only download the missing tail. This matters because
@@ -134,9 +144,23 @@ def get_latest_date(conn, ticker: str) -> str:
     latest = row[0] if row and row[0] else None
     if latest is None:
         return HISTORY_START
-    # Fetch from the day after the latest stored date to avoid re-inserting
-    # the boundary row (upsert would handle it, but cleaner to skip it).
-    next_day = (pd.Timestamp(latest) + timedelta(days=1)).strftime("%Y-%m-%d")
+
+    latest_ts = pd.Timestamp(latest)
+    gap_days  = (pd.Timestamp(date.today()) - latest_ts).days
+
+    # WHY the gap re-fetch: when a ticker has fallen well behind today, starting
+    # the fetch from latest+1 keeps failing if yfinance is returning empty for
+    # that recent window (the self-perpetuating LSE gap that froze the vol model
+    # in 2026-07). Re-requesting a wider window (upsert makes re-inserting the
+    # already-stored tail a harmless no-op) gives yfinance a chance to fill the
+    # hole once its data reappears.
+    if gap_days > STALE_GAP_DAYS:
+        return (latest_ts - timedelta(days=GAP_REFETCH_DAYS)).strftime("%Y-%m-%d")
+
+    # Normal incremental path: fetch from the day after the latest stored date
+    # to avoid re-inserting the boundary row (upsert would handle it, but
+    # cleaner to skip it).
+    next_day = (latest_ts + timedelta(days=1)).strftime("%Y-%m-%d")
     return next_day
 
 
