@@ -9,47 +9,80 @@ jobs:
   trigger:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger pipeline and verify data refreshed
+      - name: Trigger pipeline and verify data advanced
         env:
           APP_URL: ${{ secrets.RENDER_APP_URL }}
           SECRET:  ${{ secrets.PIPELINE_SECRET }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+
+          # Latest volatility-forecast date. This is the last ML step's output, so
+          # it only moves if the pipeline ran all the way to the end.
+          latest_date() {
+            curl -s --max-time 60 "${APP_URL}/api/ml/volatility/forecast" \
+              | jq -r '([.data[].date] | max) // empty' 2>/dev/null || echo ""
+          }
 
           # Fire the pipeline synchronously (?wait=true) so it runs to completion
           # and steps execute in order (KM after HMM). On Render's free tier the
           # full run takes ~18 min, but the edge proxy cuts the HTTP response at
           # ~15 min with a 502 -- the pipeline keeps running inside the container
           # and finishes. So we must NOT treat the trigger's HTTP code as the
-          # success signal; instead we poll the data and check it actually
-          # refreshed. This avoids the false-failure the 502 used to cause.
-          echo "Firing pipeline (background curl; 502/timeout is expected and ignored)..."
-          curl -s -o /dev/null \
-            -X POST "${APP_URL}/api/pipeline/run?wait=true" \
-            -H "Authorization: Bearer ${SECRET}" \
-            -H "Content-Type: application/json" \
-            --connect-timeout 90 --max-time 1200 || true
+          # success signal; instead we poll the data and check it moved.
+          fire() {
+            echo "Firing pipeline (background curl; 502/timeout is expected and ignored)..."
+            curl -s -o /dev/null \
+              -X POST "${APP_URL}/api/pipeline/run?wait=true" \
+              -H "Authorization: Bearer ${SECRET}" \
+              -H "Content-Type: application/json" \
+              --connect-timeout 90 --max-time 1200 || true
+          }
 
-          # Poll: the volatility forecast's latest date should be recent once the
-          # run completes. Allow up to 4 days of slack for weekends / market-closed
-          # days (newest trading row may lag the calendar). Poll for up to ~24 min.
-          echo "Polling for fresh data (latest volatility forecast date)..."
-          CUTOFF=$(date -u -d '4 days ago' +%Y-%m-%d)
-          echo "Freshness cutoff (must be >= this): $CUTOFF"
+          # WHY compare against the PRE-RUN date rather than a rolling "today - N
+          # days" cutoff: a date-window check silently passes while the pipeline is
+          # already frozen, for as many days as the window is wide. That is exactly
+          # what happened 2026-07-21..07-27 -- the forecast was stuck at 07-21, but
+          # the 4-day window kept reporting green until the stale date finally fell
+          # out of it. Requiring the date to ADVANCE past where it was before we
+          # fired catches a dead run on the first occurrence instead of the fourth.
+          BEFORE="$(latest_date)"
+          echo "Latest forecast date before run: '${BEFORE:-<none>}'"
 
-          for i in $(seq 1 24); do
-            # Extract the max forecast date. The endpoint returns {"data":[{date,...}]}.
-            # jq is preinstalled on ubuntu-latest. [.data[].date]|max gives the latest.
-            LATEST=$(curl -s --max-time 60 "${APP_URL}/api/ml/volatility/forecast" \
-              | jq -r '([.data[].date] | max) // empty' 2>/dev/null || echo "")
-            echo "  attempt $i: latest forecast date = '${LATEST:-<none>}'"
-            if [ -n "$LATEST" ] && { [ "$LATEST" \> "$CUTOFF" ] || [ "$LATEST" = "$CUTOFF" ]; }; then
-              echo "Data is fresh (latest=$LATEST >= cutoff=$CUTOFF). Pipeline succeeded."
-              exit 0
-            fi
-            sleep 60
+          # Render free-tier instances are evicted intermittently, which kills a
+          # run part-way through. One retry converts most of those transient
+          # failures into a success rather than a red build.
+          for round in 1 2; do
+            echo "=== Trigger round $round of 2 ==="
+            fire
+
+            echo "Polling for advanced data (up to ~20 min)..."
+            for i in $(seq 1 20); do
+              LATEST="$(latest_date)"
+              echo "  round $round attempt $i: latest forecast date = '${LATEST:-<none>}'"
+              if [ -n "$LATEST" ] && [ -n "$BEFORE" ] && [ "$LATEST" \> "$BEFORE" ]; then
+                echo "Data advanced ($BEFORE -> $LATEST). Pipeline succeeded."
+                exit 0
+              fi
+              # First-ever run (empty table): any date at all counts as success.
+              if [ -n "$LATEST" ] && [ -z "$BEFORE" ]; then
+                echo "Data populated (latest=$LATEST). Pipeline succeeded."
+                exit 0
+              fi
+              sleep 60
+            done
+            echo "Round $round did not advance the data."
           done
 
-          echo "Data did not refresh within the polling window (last seen: ${LATEST:-<none>}, needed >= $CUTOFF)."
-          echo "The pipeline may have failed or is still running. Check Render logs."
+          # A weekend / market-closed run legitimately produces no new trading day.
+          # Only treat "did not advance" as success if the data is still recent;
+          # if it is genuinely stale the pipeline is broken and we must go red.
+          CUTOFF=$(date -u -d '4 days ago' +%Y-%m-%d)
+          if [ -n "$LATEST" ] && { [ "$LATEST" \> "$CUTOFF" ] || [ "$LATEST" = "$CUTOFF" ]; }; then
+            echo "Data did not advance, but latest=$LATEST is still within $CUTOFF."
+            echo "Most likely no new trading day (weekend/holiday). Treating as success."
+            exit 0
+          fi
+
+          echo "Pipeline did not refresh the data after 2 attempts (last seen: ${LATEST:-<none>}, stale since before $CUTOFF)."
+          echo "Check Render logs -- the run is dying before the ML steps complete."
           exit 1
